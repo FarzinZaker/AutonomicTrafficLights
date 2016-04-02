@@ -1,0 +1,81 @@
+<div id="chartContainer"></div>
+
+<script type="text/javascript">
+    var lastCarsCount = 0;
+    var lastAdaptiveCarsCount = 0;
+    var lastAdaptiveWithAssuranceCarsCount = 0;
+    var chart;
+    $(window).on('resize', function(){
+        $('#chartContainer').height($(window).height() - 56);
+    });
+    $(document).ready(function(){
+        $('#chartContainer').height($(window).height() - 56).width($(window).width() - 20);
+        chart = new Highcharts.Chart({
+            chart: {
+                renderTo: 'chartContainer',
+                type: 'line'
+            },
+            title: {
+                text: 'Average Car Speed',
+                x: -20 //center
+            },
+            plotOptions: {
+                series: {
+                    marker: {
+                        enabled: false
+                    }
+                }
+            },
+            xAxis: {
+                title: {
+                    text: 'Cars Count'
+                }
+            },
+            yAxis: {
+                title: {
+                    text: 'Average Spped (ms)'
+                },
+                plotLines: [{
+                    value: 0,
+                    width: 1,
+                    color: '#808080'
+                }]
+            },
+            tooltip: {
+                valueSuffix: 'ms'
+            },
+            legend: {
+                layout: 'horizontal',
+                align: 'center',
+                horizontalAlign: 'center',
+                borderWidth: 0
+            },
+            series: [{
+                name: 'Simple',
+                color: '#FF0000',
+                data: (function() {
+                    // generate an array of random data
+                    var data = [{x:0, y:null}];
+                    return data;
+                })()
+            }, {
+                name: 'Adaptive',
+                color: '#0000FF',
+                data: (function() {
+                    // generate an array of random data
+                    var data = [{x:0, y:null}];
+                    return data;
+                })()
+            }, {
+                name: 'Adaptive With Assurance',
+                color: '#00FF00',
+                data: (function() {
+                    // generate an array of random data
+                    var data = [{x:0, y:null}];
+                    return data;
+                })()
+            }]
+        });
+    });
+
+</script>

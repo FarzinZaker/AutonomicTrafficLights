@@ -1,0 +1,61 @@
+@(message: String)
+
+@main("Traffic Light System") {
+    <div id="tabStrip">
+        <ul>
+            <li class="k-state-active">
+                Reports
+            </li>
+            <li>
+                Simple
+            </li>
+            <li>
+                Adaptive
+            </li>
+            <li>
+                Adaptive with Assurance
+            </li>
+        </ul>
+
+        <div>
+        @reports()
+        </div>
+
+        <div>
+        @diagram()
+        </div>
+
+        <div>
+        @adaptiveDiagram()
+        </div>
+
+        <div>
+        @adaptiveWithAssuranceDiagram()
+        </div>
+    </div>
+
+    <script language="javascript" type="text/javascript">
+
+            function updateDiagramsHeight(e){
+                $('#diagram').height($(window).height() - 56);
+                $('#adaptiveDiagram').height($(window).height() - 56);
+                $('#adaptiveWithAssuranceDiagram').height($(window).height() - 56);
+            }
+            $(window).on('resize', function(){
+                updateDiagramsHeight();
+            });
+
+            $(document).ready(function () {
+                $("#tabStrip").kendoTabStrip({
+                    animation: {
+                        open: {
+                            effects: "none"
+                        }
+                    },
+                    select: updateDiagramsHeight
+                });
+                updateDiagramsHeight();
+                setTimeout(updateDiagramsHeight, 1000);
+            });
+    </script>
+}

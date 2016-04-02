@@ -1,0 +1,30 @@
+<div id="adaptiveDiagram"></div>
+
+<div id="adaptiveStatusFlag" style="position:absolute ; bottom:15px ; left:15px ; background:#5b7814 ; color:white ; padding:10px ; font-family: 'Arial Black' ; font-size:12px ;">
+    ...</div>
+<div id="adaptiveCarsFlag" style="position:absolute ; bottom:15px ; right:15px ; background:#801515 ; color:white ; padding:10px ; font-family: 'Arial Black' ; font-size:12px ;">
+    ...</div>
+
+
+<script type="text/javascript">
+    $(document).ready(function(){
+        adaptiveInit();
+
+        loadAdaptiveStatus();
+
+    });
+
+    function loadAdaptiveStatus(){
+        $.ajax({
+            url : '/adaptiveStatus',
+            success: function(response){
+                updateAdaptiveModel(response.nodes, response.links, response.cars);
+                $('#adaptiveStatusFlag').html(response.status);
+                $('#adaptiveCarsFlag').html(response.enqueuedCars);
+                loadAdaptiveStatus();
+//                        setTimeout(loadStatus, 1000);
+            }
+        });
+    }
+
+</script>
