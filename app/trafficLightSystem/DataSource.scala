@@ -3,6 +3,10 @@ package trafficLightSystem
 import java.io.{File, PrintWriter}
 import java.nio.file.{Files, Paths}
 
+import akka.actor.ActorRef
+
+import scala.io.Source
+
 /**
   * Created by root on 3/28/16.
   */
@@ -11,6 +15,8 @@ object DataSource {
 
   val carDataFileName = "REAL_DATA.txt"
   val carDataFilePath = Paths.get(carDataFileName)
+  var feedingRounds = 3
+  var feedingRound = 1
 }
 
 class DataSource(rowsCount: Int, columnsCount: Int) {
@@ -51,5 +57,33 @@ class DataSource(rowsCount: Int, columnsCount: Int) {
       }
     }
     writer.close()
+  }
+
+  def feed(trafficLightGrids: Array[TrafficLightGridBase]) = {
+
+    new Thread(new Runnable {
+      override def run(): Unit = {
+
+        DataSource.feedingRound = 1
+        while (DataSource.feedingRound <= DataSource.feedingRounds) {
+          for (line <- Source.fromFile(DataSource.carDataFileName).getLines()) {
+            val parts = line.toString.split(' ')
+            if (parts(0) == "sleep") {
+              Thread.sleep(parts(1).toLong)
+            }
+            else {
+              if (Path.parse(parts).nonEmpty) {
+                for (grid <- trafficLightGrids) {
+                  if (grid != null)
+                    grid.feed(Car.parseRealCar(parts))
+                }
+              }
+            }
+          }
+
+          DataSource.feedingRound += 1
+        }
+      }
+    }).start()
   }
 }

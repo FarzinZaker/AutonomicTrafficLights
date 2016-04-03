@@ -11,21 +11,8 @@ import scala.collection.mutable.ArrayBuffer
 
 object Car {
 
-  private def parsePath(data: Array[String]): Path = {
-
-    val sourceRow = data(0).toInt
-    val sourceColumn = data(1).toInt
-    var indexer = 5
-    val carPath: Path = new Path(sourceRow, sourceColumn, data(2).toInt, data(3).toInt)
-    while (indexer < data.length) {
-      carPath.enqueue(Direction.get(data(indexer).toInt))
-      indexer += 1
-    }
-    carPath
-  }
-
   def parseRealCar(data: Array[String]): RealCar = {
-    val path = parsePath(data)
+    val path = Path.parse(data)
     if (path.nonEmpty)
       new RealCar(path)
     else
@@ -33,7 +20,7 @@ object Car {
   }
 
   def parseTestCar(data: Array[String], adaptationGroup: UUID, adaptation: UUID): TestCar = {
-    val path = parsePath(data)
+    val path = Path.parse(data)
     if (path.nonEmpty)
       new TestCar(path, adaptationGroup, adaptation)
     else

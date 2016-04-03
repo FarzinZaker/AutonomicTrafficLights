@@ -12,7 +12,7 @@ import scala.collection.mutable
 class TestActorInitData(val carSpeed: Int,
                         val routeCapacity: Int = 60,
                         val neighbours: mutable.HashMap[Direction.Value, ActorRef],
-                        val currentTimings: mutable.HashMap[Direction.Value, mutable.HashMap[Direction.Value, Long]],
+                        val currentTimings: mutable.HashMap[Direction.Value, mutable.HashMap[Direction.Value, Double]],
                         val adaptationGroup: UUID,
                         val adaptation: UUID,
                         val factor: Double = 1,

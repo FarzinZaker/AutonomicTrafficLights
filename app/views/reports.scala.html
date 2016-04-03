@@ -13,7 +13,7 @@
         chart = new Highcharts.Chart({
             chart: {
                 renderTo: 'chartContainer',
-                type: 'line'
+                type: 'spline'
             },
             title: {
                 text: 'Average Car Speed',
@@ -33,7 +33,7 @@
             },
             yAxis: {
                 title: {
-                    text: 'Average Spped (ms)'
+                    text: 'Average Speed (ms)'
                 },
                 plotLines: [{
                     value: 0,

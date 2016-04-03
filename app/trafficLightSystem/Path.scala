@@ -19,6 +19,19 @@ object Path {
     )
     result
   }
+
+  def parse(data: Array[String]): Path = {
+
+    val sourceRow = data(0).toInt
+    val sourceColumn = data(1).toInt
+    var indexer = 5
+    val carPath: Path = new Path(sourceRow, sourceColumn, data(2).toInt, data(3).toInt)
+    while (indexer < data.length) {
+      carPath.enqueue(Direction.get(data(indexer).toInt))
+      indexer += 1
+    }
+    carPath
+  }
 }
 
 class Path(startRow: Int, startColumn: Int, endRow: Int, endColumn: Int, random: Boolean = false) extends mutable.Queue[Direction.Value] {

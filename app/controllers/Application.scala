@@ -10,10 +10,11 @@ object Application extends Controller {
   var adaptiveWithAssuranceGrid: TrafficLightAdaptiveWithAssuranceGrid = null
 
   def index = Action {
-    new DataSource(8, 8)
-//    grid = new TrafficLightGrid
-//    adaptiveGrid = new TrafficLightAdaptiveGrid
+    grid = new TrafficLightGrid(8, 8)
+    adaptiveGrid = new TrafficLightAdaptiveGrid(8, 8)
     adaptiveWithAssuranceGrid = new TrafficLightAdaptiveWithAssuranceGrid
+    DataSource.feedingRounds = 3
+    new DataSource(8, 8).feed(Array(grid, adaptiveGrid, adaptiveWithAssuranceGrid))
     Ok(views.html.index("hello"))
   }
 
@@ -21,21 +22,21 @@ object Application extends Controller {
     if (grid != null)
       Ok(grid.getStatus)
     else
-      Ok("[]")
+      Ok("{}")
   }
 
   def adaptiveStatus = Action {
     if (adaptiveGrid != null)
       Ok(adaptiveGrid.getStatus)
     else
-      Ok("[]")
+      Ok("{}")
   }
 
   def adaptiveWithAssuranceStatus = Action {
     if (adaptiveWithAssuranceGrid != null)
       Ok(adaptiveWithAssuranceGrid.getStatus)
     else
-      Ok("[]")
+      Ok("{}")
   }
 
 }
