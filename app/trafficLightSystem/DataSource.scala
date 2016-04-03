@@ -24,7 +24,12 @@ class DataSource(rowsCount: Int, columnsCount: Int) {
   private val random = new scala.util.Random
 
   private def random(range: Range): Int = {
-    range(random.nextInt(range.length))
+    var result : Int = -1
+    while(result < 0 || result < range(0) || result > range(range.length - 1)) {
+      val rand = random.nextGaussian()
+      result = Math.round((rand + 2) * range.length / 4 + range(0)).toInt
+    }
+    result
   }
 
   //create data file

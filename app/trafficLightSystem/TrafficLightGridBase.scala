@@ -92,7 +92,11 @@ abstract class TrafficLightGridBase(rowsCount: Int = 8, columnsCount: Int = 8) {
       threads(i)(j) = new Thread(new Runnable {
         override def run(): Unit = {
           val future = grid(i)(j) ? "GET_ACTOR_STATUS"
-          actorStatusList += Await.result(future, timeout.duration).asInstanceOf[ActorStatus]
+          try {
+            actorStatusList += Await.result(future, timeout.duration).asInstanceOf[ActorStatus]
+          } catch {
+            case _:Throwable =>
+          }
         }
       })
       threads(i)(j).start()
