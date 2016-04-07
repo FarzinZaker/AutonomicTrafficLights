@@ -15,7 +15,7 @@ object DataSource {
 
   val carDataFileName = "REAL_DATA.txt"
   val carDataFilePath = Paths.get(carDataFileName)
-  var feedingRounds = 3
+  var feedingRounds = 2
   var feedingRound = 1
 }
 
@@ -80,7 +80,7 @@ class DataSource(rowsCount: Int, columnsCount: Int) {
               if (Path.parse(parts).nonEmpty) {
                 for (grid <- trafficLightGrids) {
                   if (grid != null)
-                    grid.feed(Car.parseRealCar(parts))
+                    grid.feed(Car.parse(parts))
                 }
               }
             }

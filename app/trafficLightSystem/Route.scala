@@ -6,3 +6,7 @@ package trafficLightSystem
 case class Route(var sourceDirection: Direction.Value, var destinationDirection: Direction.Value) {
 
 }
+
+case class TokenRoute(var sourceDirection: Direction.Value, var destinationDirection: Direction.Value) {
+
+}

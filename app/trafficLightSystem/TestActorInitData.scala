@@ -9,13 +9,13 @@ import scala.collection.mutable
 /**
   * Created by root on 3/30/16.
   */
-class TestActorInitData(val carSpeed: Int,
-                        val routeCapacity: Int = 60,
+class TestActorInitData(val parent: ActorRef,
+                        val initiator: ActorRef,
                         val neighbours: mutable.HashMap[Direction.Value, ActorRef],
                         val currentTimings: mutable.HashMap[Direction.Value, mutable.HashMap[Direction.Value, Double]],
                         val adaptationGroup: UUID,
-                        val adaptation: UUID,
-                        val factor: Double = 1,
+                        val factor: Double,
+                        val applyAdaptation: Boolean = false,
                         val adaptationPathSourceDirection: Direction.Value = Direction.None,
                         val adaptationPathDestinationDirection: Direction.Value = Direction.None) {
 

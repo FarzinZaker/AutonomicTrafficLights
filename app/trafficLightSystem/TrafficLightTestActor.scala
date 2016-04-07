@@ -2,8 +2,9 @@ package trafficLightSystem
 
 import java.util.{Date, UUID}
 
-import akka.actor.{ActorLogging, ActorRef, Actor}
+import akka.actor.{ActorSelection, ActorLogging, ActorRef, Actor}
 import trafficLightSystem.Direction._
+import scala.concurrent.duration._
 
 import scala.collection.mutable
 
@@ -15,170 +16,124 @@ object TrafficLightTestActor {
     println(s"test actors: $instanceCounter")
   }
 }
+
 /**
   * Created by root on 3/11/16.
   */
-class TrafficLightTestActor extends Actor {
+class TrafficLightTestActor(carSpeed: Int = 5, routeCapacity: Int = 60) extends TrafficLightActorBase(carSpeed, routeCapacity) {
 
-//  TrafficLightTestActor.currentInstances()
+  //  TrafficLightTestActor.currentInstances()
 
-//  private var carSpeed: Int = 0
-//  private var routeCapacity: Int = 60
-//  private var adaptationGroup: UUID = null
-//  private var adaptation: UUID = null
-//  private var factor: Double = 1
-//  private var adaptationPathSourceDirection: Direction.Value = Direction.None
-//  private var adaptationPathDestinationDirection: Direction.Value = Direction.None
-//
-//  private val queues = mutable.HashMap[Direction.Value, mutable.HashMap[Direction.Value, mutable.Queue[Car]]]()
-//  private val waitTimes = mutable.HashMap[Direction.Value, mutable.HashMap[Direction.Value, Average]]()
-//  private val neighbours = mutable.HashMap[Direction.Value, ActorRef]()
-//  private val timings = mutable.HashMap[Direction.Value, mutable.HashMap[Direction.Value, Long]]()
-//
-//  val isLeader: Boolean = factor != 1
-//
-//  def init(initData: TestActorInitData) = {
-//
-//    carSpeed = initData.carSpeed
-//    routeCapacity = initData.routeCapacity
-//    adaptationGroup = initData.adaptationGroup
-//    adaptation = initData.adaptation
-//    factor = initData.factor
-//    adaptationPathSourceDirection = initData.adaptationPathSourceDirection
-//    adaptationPathDestinationDirection = initData.adaptationPathDestinationDirection
-//
-//    //initialize local state variables
-//    Direction.values.foreach((sourceDirection: Direction.Value) => {
-//      if (initData.neighbours.contains(sourceDirection))
-//        neighbours(sourceDirection) = initData.neighbours(sourceDirection)
-//      timings(sourceDirection) = new mutable.HashMap[Direction.Value, Long]
-//      waitTimes(sourceDirection) = new mutable.HashMap[Direction.Value, Average]()
-//      queues(sourceDirection) = new mutable.HashMap[Direction.Value, mutable.Queue[Car]]
-//      Direction.values.foreach((destinationDirection: Direction.Value) => {
-//        queues(sourceDirection)(destinationDirection) = new mutable.Queue[Car]
-//        waitTimes(sourceDirection)(destinationDirection) = new Average
-//        timings(sourceDirection)(destinationDirection) = initData.currentTimings(sourceDirection)(destinationDirection)
-//      })
-//    })
-//    timings(adaptationPathSourceDirection)(adaptationPathDestinationDirection) =
-//      Math.round(timings(adaptationPathSourceDirection)(adaptationPathDestinationDirection) * factor)
-//  }
-//
+  var parent: ActorRef = null
+  var initiator: ActorRef = null
+  var adaptationGroupId: UUID = null
+  var adaptationPathSourceDirection: Direction.Value = null
+  var adaptationPathDestinationDirection: Direction.Value = null
+  var adaptationFactor: Double = 1.0
+  var routingsDone = 0
+  var resultSet = Set[Double]()
+
+  def isLeader: Boolean = adaptationFactor != 1
+
   def receive = {
-//    case initData: TestActorInitData =>
-//      init(initData)
-////      println(initData)
+    case initData: TestActorInitData => this.synchronized {
+      init(initData)
+    }
+
+    case token: Token => this.synchronized {
+      handleNewTransmittable(token)
+    }
+
+    case tokenRoute: TokenRoute =>
+      this.synchronized {
+        routingsDone += 1
+        if (routingsDone <= 20)
+          doRouting(tokenRoute)
+        else {
+//                    var waitTime: Double = 0.0
 //
-//    case car: RealCar =>
-//    //      handleNewCar(TestCar(car, adaptationGroup, adaptation))
-//
-//    case car: TestCar =>
-//      handleNewCar(car)
-//
-//    case route: Route =>
-//      self ! doRouting(route)
-//
-//    case "GET_ACTOR_STATUS" =>
-//      sender ! getStatus
-  case _ =>
+//                    Direction.values.foreach((sourceDirection: Direction.Value) => {
+//                      if (sourceDirection != None)
+//                        Direction.values.foreach((destinationDirection: Direction.Value) => {
+//                          if (destinationDirection != None && sourceDirection != destinationDirection &&
+//                            waitTimes.contains(sourceDirection) && waitTimes(sourceDirection).contains(destinationDirection))
+//                            waitTime += waitTimes(sourceDirection)(destinationDirection).average()
+//                        })
+//                    })
+//                    parent ! new PartialTestResult(initiator, adaptationGroupId, adaptationFactor, waitTime)
+        }
+      }
+
+    case partialTestResult: PartialTestResult =>
+      this.synchronized {
+        resultSet += partialTestResult.value
+        if (resultSet.size >= 64)
+          initiator ! new TestResult(adaptationPathSourceDirection, adaptationPathDestinationDirection, adaptationFactor, resultSet.sum)
+      }
+
+    case _ => log(s"UNKNOWN")
   }
-//
-//  /**
-//    * gets new car and enqueues it if needed
-//    *
-//    * @param car received car
-//    */
-//  def handleNewCar(car: TestCar) = {
-//    if (!car.arrived()) {
-//
-//      car.setEnqueueTime()
-//      queues(car.entranceDirection)(car.nextTrafficLightDirection).enqueue(car)
-//    }
-//  }
-//
-//  /**
-//    * route cars
-//    *
-//    * @param route current route
-//    * @return next route
-//    */
-//  def doRouting(route: Route): Route = {
-////
-////    var totalTiming = 0L
-////    Direction.values.foreach((sourceDirection: Direction.Value) => {
-////      Direction.values.foreach((destinationDirection: Direction.Value) => {
-////        totalTiming += timings(sourceDirection)(destinationDirection)
-////      })
-////    })
-////    val carsCount = Math.ceil(timings(route.sourceDirection)(route.destinationDirection).toFloat * routeCapacity / totalTiming).toInt
-////    for (i <- 0 until carsCount)
-////      if (queues(route.sourceDirection)(route.destinationDirection).nonEmpty) {
-////        val car = queues(route.sourceDirection)(route.destinationDirection).dequeue()
-////        car.elapseTime(carSpeed)
-////        if (neighbours.contains(route.destinationDirection)) {
-////          waitTimes(route.sourceDirection)(route.destinationDirection) += car.waitTime
-////          car.waitStack.push(car.waitTime)
-////          neighbours(route.destinationDirection) ! car.move()
-////        }
-////        else
-////          queues(route.sourceDirection)(route.destinationDirection).enqueue(car)
-////      }
-////    for (car <- queues(route.sourceDirection)(route.destinationDirection)) {
-////      car.elapseTime(carsCount * carSpeed)
-////    }
-////    route.destinationDirection = Direction.next(route.destinationDirection)
-////    if (route.sourceDirection == route.destinationDirection) {
-////      route.sourceDirection = Direction.next(route.sourceDirection)
-////      route.destinationDirection = Direction.opponent(route.destinationDirection)
-////    }
-////
-////    try {
-////      Thread.sleep(Math.round(carsCount * carSpeed))
-////    } catch {
-////      case ex: Exception =>
-////        println(ex)
-////    }
-//    route
-//  }
-//
-//  /**
-//    * collect actor status
-//    *
-//    * @return Actor Status
-//    */
-//  def getStatus: ActorStatus = {
-//    val status = new ActorStatus
-////    status.id = self.path.name.replace("TRAFFIC_LIGHT_", "")
-////    status.isUnderAdaptation = false
-////    if (neighbours.contains(North))
-////      status.neighbourList(North) = neighbours(North).path.name.replace("TRAFFIC_LIGHT_", "")
-////    if (neighbours.contains(East))
-////      status.neighbourList(East) = neighbours(East).path.name.replace("TRAFFIC_LIGHT_", "")
-////    if (neighbours.contains(South))
-////      status.neighbourList(South) = neighbours(South).path.name.replace("TRAFFIC_LIGHT_", "")
-////    if (neighbours.contains(West))
-////      status.neighbourList(West) = neighbours(West).path.name.replace("TRAFFIC_LIGHT_", "")
-////    status.queueSizeList(North) = queues(North)(East).size + queues(North)(South).size + queues(North)(West).size
-////    status.queueSizeList(East) = queues(East)(South).size + queues(East)(West).size + queues(East)(North).size
-////    status.queueSizeList(South) = queues(South)(West).size + queues(South)(North).size + queues(South)(East).size
-////    status.queueSizeList(West) = queues(West)(North).size + queues(West)(East).size + queues(West)(South).size
-////    val northCount = waitTimes(North)(East).count + waitTimes(North)(South).count + waitTimes(North)(West).count
-////    if (northCount > 0)
-////      status.averageWaitTimeList(North) = (waitTimes(North)(East).sum + waitTimes(North)(South).sum + waitTimes(North)(West).sum) / northCount
-////    val eastCount = waitTimes(East)(South).count + waitTimes(East)(West).count + waitTimes(East)(North).count
-////    if (eastCount > 0)
-////      status.averageWaitTimeList(East) = (waitTimes(East)(South).sum + waitTimes(East)(West).sum + waitTimes(East)(North).sum) / eastCount
-////    val southCount = waitTimes(South)(West).count + waitTimes(South)(North).count + waitTimes(South)(East).count
-////    if (southCount > 0)
-////      status.averageWaitTimeList(South) = (waitTimes(South)(West).sum + waitTimes(South)(North).sum + waitTimes(South)(East).sum) / southCount
-////    val westCount = waitTimes(West)(North).count + waitTimes(West)(East).count + waitTimes(West)(South).count
-////    if (westCount > 0)
-////      status.averageWaitTimeList(West) = (waitTimes(West)(North).sum + waitTimes(West)(East).sum + waitTimes(South)(West).sum) / westCount
-////
-////    status.adaptationCount = 0
-////    status.testActorCount = 0
-//
-//    status
-//  }
+
+  def getTargetActor(actor: ActorRef): ActorSelection = {
+    context.actorSelection(s"/user/${actor.path.name}/TEST_${actor.path.name}_${adaptationGroupId}_$adaptationFactor")
+    //    context.actorSelection( actor.path.toString())
+  }
+
+  def init(initData: TestActorInitData) = {
+
+    parent = initData.parent
+    initiator = initData.initiator
+    adaptationGroupId = initData.adaptationGroup
+    adaptationFactor = initData.factor
+    adaptationPathSourceDirection = initData.adaptationPathSourceDirection
+    adaptationPathDestinationDirection = initData.adaptationPathDestinationDirection
+
+    Direction.values.foreach((sourceDirection: Direction.Value) => {
+      if (initData.neighbours.contains(sourceDirection))
+        neighbours(sourceDirection) = initData.neighbours(sourceDirection)
+      Direction.values.foreach((destinationDirection: Direction.Value) => {
+        timings(sourceDirection)(destinationDirection) = initData.currentTimings(sourceDirection)(destinationDirection)
+      })
+    })
+    if (initData.applyAdaptation)
+      timings(adaptationPathSourceDirection)(adaptationPathDestinationDirection) += adaptationFactor
+  }
+
+  def doRouting(tokenRoute: TokenRoute) = {
+    var totalTiming = 0.0
+    Direction.values.foreach((sourceDirection: Direction.Value) => {
+      Direction.values.foreach((destinationDirection: Direction.Value) => {
+        totalTiming += timings(sourceDirection)(destinationDirection)
+      })
+    })
+    val transmittableCount = math.ceil(timings(tokenRoute.sourceDirection)(tokenRoute.destinationDirection) * routeCapacity / (totalTiming * transmittableSpeed)).toInt
+    for (i <- 0 until transmittableCount)
+      if (queues(tokenRoute.sourceDirection)(tokenRoute.destinationDirection).nonEmpty) {
+        val transmittable = queues(tokenRoute.sourceDirection)(tokenRoute.destinationDirection).dequeue()
+        transmittable.elapseTime(transmittableSpeed)
+        if (neighbours.contains(tokenRoute.destinationDirection)) {
+          waitTimes(tokenRoute.sourceDirection)(tokenRoute.destinationDirection) += transmittable.waitTime
+          transmittable.waitStack.push(transmittable.waitTime)
+          getTargetActor(neighbours(tokenRoute.destinationDirection)) ! transmittable.move()
+        }
+        else
+          queues(tokenRoute.sourceDirection)(tokenRoute.destinationDirection).enqueue(transmittable)
+      }
+
+    Direction.values.foreach((sourceDirection: Direction.Value) => {
+      Direction.values.foreach((destinationDirection: Direction.Value) => {
+        for (transmittable <- queues(sourceDirection)(destinationDirection)) {
+          transmittable.elapseTime(transmittableCount * transmittableSpeed)
+        }
+      })
+    })
+
+    tokenRoute.destinationDirection = Direction.next(tokenRoute.destinationDirection)
+    if (tokenRoute.sourceDirection == tokenRoute.destinationDirection) {
+      tokenRoute.sourceDirection = Direction.next(tokenRoute.sourceDirection)
+      tokenRoute.destinationDirection = Direction.opponent(tokenRoute.destinationDirection)
+    }
+    self ! tokenRoute
+  }
 
 }

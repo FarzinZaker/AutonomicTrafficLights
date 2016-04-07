@@ -1,7 +1,7 @@
 package trafficLightSystem
 
 
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.{DeadLetter, ActorRef, ActorSystem, Props}
 import akka.pattern.ask
 import akka.util.Timeout
 import play.api.libs.json.{JsArray, JsNumber, JsObject, JsString}
@@ -14,8 +14,7 @@ import scala.io.Source
 /**
   * Created by root on 4/3/16.
   */
-abstract class TrafficLightGridBase(rowsCount: Int = 8, columnsCount: Int = 8) {
-
+abstract class TrafficLightGridBase(name: String = "TRAFFIC_LIGHT_SYSTEM", rowsCount: Int = 8, columnsCount: Int = 8) {
 
   val carList = new ArrayBuffer[Car]()
 
@@ -34,18 +33,21 @@ abstract class TrafficLightGridBase(rowsCount: Int = 8, columnsCount: Int = 8) {
   protected def createActorInstance: TrafficLightActorBase
 
 
-  val system = ActorSystem("TRAFFIC_LIGHT_SYSTEM", com.typesafe.config.ConfigFactory.parseString(
-    """ prio-dispatcher {
-            type = "Dispatcher"
+  val system = ActorSystem(name, com.typesafe.config.ConfigFactory.parseString(
+    s""" ${name.toLowerCase()}-prio-dispatcher {
+            type = Dispatcher
             mailbox-type = "%s"
           }""".format(classOf[PrioritizedMailbox].getName)))
+
+  val listener = system.actorOf(Props[EventListener]())
+  system.eventStream.subscribe(listener, classOf[DeadLetter])
 
   //init
   for {
     i <- 0 until rowsCount
     j <- 0 until columnsCount
   } {
-    grid(i)(j) = system.actorOf(Props(createActorInstance).withDispatcher("prio-dispatcher"), s"TRAFFIC_LIGHT_${i + 1}_${j + 1}")
+    grid(i)(j) = system.actorOf(Props(createActorInstance).withDispatcher(s"${name.toLowerCase()}-prio-dispatcher"), s"TRAFFIC_LIGHT_${i + 1}_${j + 1}")
   }
 
   //set neighbours

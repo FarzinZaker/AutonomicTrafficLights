@@ -13,7 +13,7 @@ object Application extends Controller {
     grid = new TrafficLightGrid(8, 8)
     adaptiveGrid = new TrafficLightAdaptiveGrid(8, 8)
     adaptiveWithAssuranceGrid = new TrafficLightAdaptiveWithAssuranceGrid
-    DataSource.feedingRounds = 3
+    DataSource.feedingRounds = 2
     new DataSource(8, 8).feed(Array(grid, adaptiveGrid, adaptiveWithAssuranceGrid))
     Ok(views.html.index("hello"))
   }

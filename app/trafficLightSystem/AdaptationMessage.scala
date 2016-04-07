@@ -9,7 +9,6 @@ import scala.collection.mutable
 /**
   * Created by root on 3/2/16.
   */
-class AdaptationMessage(val initiator: ActorRef, val adaptationGroupId: UUID, val adaptationFactor: Double, val adaptationSourceDirection: Direction.Value, val adaptationDestinationDirection: Direction.Value) {
+class AdaptationMessage(val initiator: ActorRef, val adaptationGroupId: UUID, val adaptationFactors: Array[Double], val adaptationSourceDirection: Direction.Value, val adaptationDestinationDirection: Direction.Value) {
 
-  val adaptationId = UUID.randomUUID()
 }

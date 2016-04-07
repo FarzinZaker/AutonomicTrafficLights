@@ -14,6 +14,8 @@ class Average {
   }
 
   def average(): Long = {
-    sum / count
+    if (count > 0)
+      sum / count
+    else 0
   }
 }

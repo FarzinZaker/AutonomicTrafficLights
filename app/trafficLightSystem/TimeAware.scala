@@ -1,31 +1,33 @@
 package trafficLightSystem
 
+import java.util.concurrent.atomic.AtomicLong
+
 /**
   * Created by root on 3/26/16.
   */
-trait TimeAware {
+class TimeAware {
 
-  protected var currentTimeInternal = 0L
-//  protected var creationTimeInternal = 0L
-  protected var enqueueTimeInternal = 0L
+  protected var currentTimeInternal = new AtomicLong(0)
+  //  protected var creationTimeInternal = 0L
+  protected var enqueueTimeInternal = new AtomicLong(0)
 
   def elapseTime(time: Long) = {
-    currentTimeInternal += time * 1000
+    currentTimeInternal.addAndGet(time)
   }
 
   def elapseTime(time: Double) = {
-    currentTimeInternal += Math.round(time * 1000)
+    currentTimeInternal.addAndGet(Math.round(time))
   }
 
   def elapsedTime(): Long = {
-    currentTimeInternal// - creationTimeInternal
+    currentTimeInternal.get() // - creationTimeInternal
   }
 
   def setEnqueueTime() = {
-    enqueueTimeInternal = currentTimeInternal
+    enqueueTimeInternal.set(currentTimeInternal.get())
   }
 
   def waitTime: Long = {
-    currentTimeInternal - enqueueTimeInternal
+    currentTimeInternal.get() - enqueueTimeInternal.get()
   }
 }

@@ -16,6 +16,14 @@ class PrioritizedMailbox(settings: ActorSystem.Settings, cfg: Config)
         0
       case adaptationMessage: AdaptationMessage =>
         1
+      case partialTestResult: PartialTestResult =>
+        1
+      case testResult: TestResult =>
+        1
+      case token: Token =>
+        1
+//      case route: Route =>
+//        1
       case _ =>
         10
     })

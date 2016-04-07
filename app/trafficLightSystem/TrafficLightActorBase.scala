@@ -1,29 +1,42 @@
 package trafficLightSystem
 
-import akka.actor.{ActorRef, Actor}
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
+
+import akka.actor.{ActorSelection, ActorRef, Actor}
 import Direction._
 import scala.collection.mutable
+import scala.concurrent.duration._
 
 /**
   * Created by root on 4/3/16.
   */
-abstract class TrafficLightActorBase(carSpeed: Int = 5, routeCapacity: Int = 60) extends Actor {
+object TrafficLightActorBase {
+  var routeCounter : AtomicInteger = new AtomicInteger(0)
 
+  def increaseRouteCount() = {
+    println(s"route count:\t${routeCounter.incrementAndGet()}")
+  }
+}
 
-  protected val queues = mutable.HashMap[Direction.Value, mutable.HashMap[Direction.Value, mutable.Queue[Car]]]()
+abstract class TrafficLightActorBase(var transmittableSpeed: Int = 5, var routeCapacity: Int = 600) extends Actor {
+
+  import context._
+
+  protected val queues = mutable.HashMap[Direction.Value, mutable.HashMap[Direction.Value, mutable.Queue[Transmittable]]]()
   protected val waitTimes = mutable.HashMap[Direction.Value, mutable.HashMap[Direction.Value, Average]]()
   protected val neighbours = mutable.HashMap[Direction.Value, ActorRef]()
   protected val timings = mutable.HashMap[Direction.Value, mutable.HashMap[Direction.Value, Double]]()
-  protected val testActors = mutable.ArrayBuffer[ActorRef]()
+  protected val testActors = mutable.HashMap[UUID, mutable.HashMap[Double, ActorRef]]()
   protected var isUnderAdaptation: Boolean = false
 
   //initialize local state variables
   Direction.values.foreach((sourceDirection: Direction.Value) => {
     timings(sourceDirection) = new mutable.HashMap[Direction.Value, Double]
     waitTimes(sourceDirection) = new mutable.HashMap[Direction.Value, Average]()
-    queues(sourceDirection) = new mutable.HashMap[Direction.Value, mutable.Queue[Car]]
+    queues(sourceDirection) = new mutable.HashMap[Direction.Value, mutable.Queue[Transmittable]]
     Direction.values.foreach((destinationDirection: Direction.Value) => {
-      queues(sourceDirection)(destinationDirection) = new mutable.Queue[Car]
+      queues(sourceDirection)(destinationDirection) = new mutable.Queue[Transmittable]
       waitTimes(sourceDirection)(destinationDirection) = new Average
       if (sourceDirection != destinationDirection && sourceDirection != None && destinationDirection != None)
         timings(sourceDirection)(destinationDirection) = 1.0
@@ -32,49 +45,57 @@ abstract class TrafficLightActorBase(carSpeed: Int = 5, routeCapacity: Int = 60)
     })
   })
 
-  def handleNewCar(car: RealCar) = {
-    if (!car.arrived()) {
-      car.setEnqueueTime()
-      queues(car.entranceDirection)(car.nextTrafficLightDirection).enqueue(car)
+  def handleNewTransmittable(transmittable: Transmittable) = {
+    if (!transmittable.arrived()) {
+      transmittable.setEnqueueTime()
+      queues(transmittable.entranceDirection)(transmittable.nextTrafficLightDirection).enqueue(transmittable)
     }
+    else
+      log("Car Arrived")
   }
 
-  def doRouting(route: Route): Route = {
-    var totalTiming = 0.0
-    Direction.values.foreach((sourceDirection: Direction.Value) => {
-      Direction.values.foreach((destinationDirection: Direction.Value) => {
-        totalTiming += timings(sourceDirection)(destinationDirection)
+  def doRouting(route: Route) = {
+    try {
+      var totalTiming = 0.0
+      Direction.values.foreach((sourceDirection: Direction.Value) => {
+        Direction.values.foreach((destinationDirection: Direction.Value) => {
+          totalTiming += timings(sourceDirection)(destinationDirection)
+        })
       })
-    })
-    val carsCount = math.ceil(timings(route.sourceDirection)(route.destinationDirection) * routeCapacity / totalTiming).toInt
-    for (i <- 0 until carsCount)
-      if (queues(route.sourceDirection)(route.destinationDirection).nonEmpty) {
-        val car = queues(route.sourceDirection)(route.destinationDirection).dequeue()
-        car.elapseTime(carSpeed)
-        if (neighbours.contains(route.destinationDirection)) {
-          waitTimes(route.sourceDirection)(route.destinationDirection) += car.waitTime
-          car.waitStack.push(car.waitTime)
-          neighbours(route.destinationDirection) ! car.move()
+      val transmittableCount = math.ceil(timings(route.sourceDirection)(route.destinationDirection) * routeCapacity / (totalTiming * transmittableSpeed)).toInt
+      for (i <- 0 until transmittableCount)
+        if (queues(route.sourceDirection)(route.destinationDirection).nonEmpty) {
+          val transmittable = queues(route.sourceDirection)(route.destinationDirection).dequeue()
+          if (neighbours.contains(route.destinationDirection)) {
+            waitTimes(route.sourceDirection)(route.destinationDirection) += transmittable.waitTime
+            transmittable.waitStack.push(transmittable.waitTime)
+            transmittable.elapseTime(transmittableSpeed)
+            neighbours(route.destinationDirection) ! transmittable.move()
+            TrafficLightActorBase.increaseRouteCount()
+          }
+          else
+            queues(route.sourceDirection)(route.destinationDirection).enqueue(transmittable)
         }
-        else
-          queues(route.sourceDirection)(route.destinationDirection).enqueue(car)
+
+      Direction.values.foreach((sourceDirection: Direction.Value) => {
+        Direction.values.foreach((destinationDirection: Direction.Value) => {
+          for (transmittable <- queues(sourceDirection)(destinationDirection)) {
+            transmittable.elapseTime(transmittableCount * transmittableSpeed)
+          }
+        })
+      })
+
+      route.destinationDirection = Direction.next(route.destinationDirection)
+      if (route.sourceDirection == route.destinationDirection) {
+        route.sourceDirection = Direction.next(route.sourceDirection)
+        route.destinationDirection = Direction.opponent(route.destinationDirection)
       }
-
-    Direction.values.foreach((sourceDirection: Direction.Value) => {
-      Direction.values.foreach((destinationDirection: Direction.Value) => {
-        for (car <- queues(sourceDirection)(destinationDirection)) {
-          car.elapseTime(carsCount * carSpeed)
-        }
-      })
-    })
-
-    route.destinationDirection = Direction.next(route.destinationDirection)
-    if (route.sourceDirection == route.destinationDirection) {
-      route.sourceDirection = Direction.next(route.sourceDirection)
-      route.destinationDirection = Direction.opponent(route.destinationDirection)
+      context.system.scheduler.scheduleOnce((transmittableCount * transmittableSpeed * 10).milliseconds, self, route)
     }
-    Thread.sleep(Math.round(carsCount * carSpeed))
-    route
+    catch {
+      case ex:Exception =>
+        println(ex)
+    }
   }
 
 
@@ -107,9 +128,16 @@ abstract class TrafficLightActorBase(carSpeed: Int = 5, routeCapacity: Int = 60)
     if (westCount > 0)
       status.averageWaitTimeList(West) = (waitTimes(West)(North).sum + waitTimes(West)(East).sum + waitTimes(South)(West).sum) / westCount
 
-    status.adaptationCount = if(isUnderAdaptation) 1 else 0
-    status.testActorCount = testActors.size
+    status.adaptationCount = if (isUnderAdaptation) 1 else 0
+    status.testActorCount = 0
+    for (adaptationGroup <- testActors.keySet) {
+      status.testActorCount += testActors(adaptationGroup).keySet.size
+    }
 
     status
+  }
+
+  def log(message: String) = {
+    println(s"[${self.path.name}]\t$message")
   }
 }

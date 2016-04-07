@@ -1,12 +1,17 @@
 package trafficLightSystem
 
+import java.util.UUID
+
 import Direction._
+
+import scala.collection.mutable
 
 /**
   * Created by root on 3/2/16.
   */
-abstract class Transmittable(val path: Path) {
+abstract class Transmittable(val path: Path) extends TimeAware {
 
+  val id: UUID = UUID.randomUUID()
   var entranceDirection = Direction.opponent(path.head)
   var remainingPath = path.clone()
   var currentRow = path.sourceRow
@@ -43,5 +48,11 @@ abstract class Transmittable(val path: Path) {
 
   def arrived(): Boolean = {
     remainingPath.isEmpty
+  }
+
+  var waitStack = mutable.Stack[Long]()
+
+  def speed(): Long = {
+    elapsedTime() / pathLength
   }
 }
