@@ -7,11 +7,13 @@ lazy val `trafficlightweb` = (project in file(".")).enablePlugins(PlayScala)
 scalaVersion := "2.11.7"
 
 lazy val akkaVersion = "2.4.0"
+lazy val encogVersion = "3.3.0"
 
 libraryDependencies ++= Seq( jdbc , cache , ws   , specs2 % Test ,
   "com.typesafe.akka" %% "akka-actor" % akkaVersion,
-  "com.typesafe.akka" %% "akka-testkit" % akkaVersion)
+  "com.typesafe.akka" %% "akka-testkit" % akkaVersion,
+  "org.encog" % "encog-core" % encogVersion)
 
 unmanagedResourceDirectories in Test <+=  baseDirectory ( _ /"target/web/public/test" )  
 
-resolvers += "scalaz-bintray" at "https://dl.bintray.com/scalaz/releases"  
+resolvers += "scalaz-bintray" at "https://dl.bintray.com/scalaz/releases"

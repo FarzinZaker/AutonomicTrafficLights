@@ -1,47 +1,75 @@
 package trafficLightSystem
 
 import java.util.UUID
+import java.util.concurrent.atomic.{AtomicReference, AtomicLong, AtomicIntegerArray}
 import scala.collection._
-import akka.actor.{ActorRef, Props}
+import akka.actor.{StopChild, PoisonPill, ActorRef, Props}
+import scala.collection.mutable.ArrayBuffer
+import scala.concurrent.duration._
 
 /**
   * Created by root on 2/27/16.
   */
 
-class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: Int = 600) extends TrafficLightActorBase(carSpeed, routeCapacity) {
+class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: Int = 600) extends TrafficLightActorBase(carSpeed, routeCapacity) with InputCarCounter {
 
-  def testResults = mutable.HashMap[Direction.Value, mutable.HashMap[Direction.Value, mutable.HashMap[Double, Double]]]()
+  import context._
+
+  val adaptationArray = Array(0.2, 0.4, 0.8)
+
+  val testResults = mutable.HashMap[Direction.Value, mutable.HashMap[Direction.Value, mutable.HashMap[Double, Double]]]()
 
   var phaseSwitchMessageCounter = 0
   var currentAdaptationGroupId: UUID = null
   var routedCars = mutable.HashMap[UUID, Int]()
 
+  context.system.scheduler.schedule(0.seconds, 10.milliseconds, self, "ELAPSE_TIMER")
+
   def receive = {
 
-    case neighbour: Neighbour => this.synchronized{ neighbours(neighbour.direction) = sender() }
+    case "ELAPSE_TIMER" => elapseTimer()
 
-    case car: Car => this.synchronized{ handleNewTransmittable(car) }
+    case neighbour: Neighbour => this.synchronized {
+      neighbours(neighbour.direction) = sender()
+    }
 
-    case route: Route => this.synchronized{ doRouting(route) }
+    case car: Car => this.synchronized {
+      if(car.isNew)
+        increaseCarsCount()
+      handleNewTransmittable(car)
+    }
 
-    case adaptationMessage: AdaptationMessage => this.synchronized{ createTestActors(adaptationMessage) }
+    case route: Route => this.synchronized {
+      //      if (isUnderAdaptation.get())
+      //        context.system.scheduler.scheduleOnce(1.seconds, self, route)
+      //      else
+      doRouting(route)
 
-    case "TEST_ACTORS_CREATED" => this.synchronized{ handleTestActorCreation() }
+    }
 
-    case adaptationStepCommand: AdaptationStepCommand => this.synchronized{ handleAdaptationStepCommand(adaptationStepCommand) }
+    case adaptationMessage: AdaptationMessage => this.synchronized {
+      createTestActors(adaptationMessage)
+    }
 
-    case partialTestResult: PartialTestResult => this.synchronized{ handlePartialTestResult(partialTestResult) }
+    case "TEST_ACTORS_CREATED" => this.synchronized {
+      handleTestActorCreation()
+    }
+
+    case adaptationStepCommand: AdaptationStepCommand => this.synchronized {
+      handleAdaptationStepCommand(adaptationStepCommand)
+    }
 
     case testResult: TestResult =>
       this.synchronized {
+        //        log(testResult.toString)
         if (!testResults.contains(testResult.adaptationPathSourceDirection))
           testResults += testResult.adaptationPathSourceDirection -> mutable.HashMap[Direction.Value, mutable.HashMap[Double, Double]]()
         if (!testResults(testResult.adaptationPathSourceDirection).contains(testResult.adaptationPathDestinationDirection))
           testResults(testResult.adaptationPathSourceDirection) += testResult.adaptationPathDestinationDirection -> mutable.HashMap[Double, Double]()
         if (!testResults(testResult.adaptationPathSourceDirection)(testResult.adaptationPathDestinationDirection).contains(testResult.adaptationFactor))
           testResults(testResult.adaptationPathSourceDirection)(testResult.adaptationPathDestinationDirection) += testResult.adaptationFactor -> testResult.value
-        if (testResults(testResult.adaptationPathSourceDirection)(testResult.adaptationPathDestinationDirection).keySet.size >= 3) {
-          var selectedAdaptationFactor = 1.0
+        if (testResults(testResult.adaptationPathSourceDirection)(testResult.adaptationPathDestinationDirection).keySet.size == adaptationArray.size) {
+          var selectedAdaptationFactor = 0.0
           var minWaitTime = 0.0
           for (factor <- testResults(testResult.adaptationPathSourceDirection)(testResult.adaptationPathDestinationDirection).keySet) {
             if (minWaitTime == 0 || testResults(testResult.adaptationPathSourceDirection)(testResult.adaptationPathDestinationDirection)(factor) < minWaitTime) {
@@ -49,16 +77,26 @@ class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: I
               selectedAdaptationFactor = factor
             }
           }
-          println(s"adaptation factor: $selectedAdaptationFactor")
+          //          println(s"adaptation factor: $selectedAdaptationFactor")
           timings(testResult.adaptationPathSourceDirection)(testResult.adaptationPathDestinationDirection) += selectedAdaptationFactor
           testResults(testResult.adaptationPathSourceDirection) -= testResult.adaptationPathDestinationDirection
-          isUnderAdaptation = false
+          finishTestActor(testResult.adaptationGroupId, testResult.adaptationFactor)
+
+          self ! "CLEAR_UNDER_ADAPTATION"
+          //          context.system.scheduler.scheduleOnce(5.seconds, self, "CLEAR_UNDER_ADAPTATION")
         }
       }
 
-    case "GET_ACTOR_STATUS" => this.synchronized{ sender ! getStatus }
+    case finishMessage: FinishMessage => finishTestActor(finishMessage.adaptationGroupId, finishMessage.adaptationFactor)
 
-    case _ => log(s"UNKNOWN")
+    case "CLEAR_UNDER_ADAPTATION" => isUnderAdaptation.set(false)
+
+    case "GET_ACTOR_STATUS" => this.synchronized {
+      sender ! getStatus
+    }
+
+    case _ =>
+      log(s"UNKNOWN")
   }
 
   def handleNewTransmittable(car: Car) = {
@@ -76,13 +114,13 @@ class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: I
       })
     })
 
-    if (!isUnderAdaptation &&
+    if (!isUnderAdaptation.get() &&
       queues(car.entranceDirection)(car.nextTrafficLightDirection).size < totalQueueSize &&
       queues(car.entranceDirection)(car.nextTrafficLightDirection).size > totalQueueSize / 6) {
-      isUnderAdaptation = true
+      isUnderAdaptation.set(true)
       phaseSwitchMessageCounter = 0
       currentAdaptationGroupId = UUID.randomUUID()
-      broadcast(new AdaptationMessage(self, currentAdaptationGroupId, Array(0.2, 0.3, 0.4), car.entranceDirection, car.nextTrafficLightDirection))
+      broadcast(new AdaptationMessage(self, currentAdaptationGroupId, adaptationArray, car.entranceDirection, car.nextTrafficLightDirection))
     }
 
     super.handleNewTransmittable(car)
@@ -127,11 +165,14 @@ class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: I
         testActor ! TokenRoute(Direction.South, Direction.East)
       }
     }
-    //    log("routing completed")
   }
 
-  def handlePartialTestResult(partialTestResult: PartialTestResult) = {
-    //    testActors(partialTestResult.adaptationGroupId)(partialTestResult.adaptationFactor).tell(partialTestResult, sender())
+  def finishTestActor(adaptationGroupId: UUID, adaptationFactor: Double) = {
+    context.stop(testActors(adaptationGroupId)(adaptationFactor))
+    //    testActors(adaptationGroupId)(adaptationFactor) ! PoisonPill.getInstance
+    testActors(adaptationGroupId) -= adaptationFactor
+    if (testActors(adaptationGroupId).isEmpty)
+      testActors -= adaptationGroupId
   }
 
   def broadcast(message: Object) = {

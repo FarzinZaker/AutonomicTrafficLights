@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicLong
 /**
   * Created by root on 3/26/16.
   */
-class TimeAware {
+trait TimeAware {
 
   protected var currentTimeInternal = new AtomicLong(0)
   //  protected var creationTimeInternal = 0L

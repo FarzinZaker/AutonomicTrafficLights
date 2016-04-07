@@ -1,7 +1,7 @@
 package trafficLightSystem
 
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 
 import akka.actor.{ActorSelection, ActorRef, Actor}
 import Direction._
@@ -12,10 +12,11 @@ import scala.concurrent.duration._
   * Created by root on 4/3/16.
   */
 object TrafficLightActorBase {
-  var routeCounter : AtomicInteger = new AtomicInteger(0)
+  var routeCounter: AtomicInteger = new AtomicInteger(0)
 
   def increaseRouteCount() = {
-    println(s"route count:\t${routeCounter.incrementAndGet()}")
+    routeCounter.incrementAndGet()
+    //    println(s"route count:\t${routeCounter.get()}")
   }
 }
 
@@ -28,7 +29,7 @@ abstract class TrafficLightActorBase(var transmittableSpeed: Int = 5, var routeC
   protected val neighbours = mutable.HashMap[Direction.Value, ActorRef]()
   protected val timings = mutable.HashMap[Direction.Value, mutable.HashMap[Direction.Value, Double]]()
   protected val testActors = mutable.HashMap[UUID, mutable.HashMap[Double, ActorRef]]()
-  protected var isUnderAdaptation: Boolean = false
+  protected var isUnderAdaptation = new AtomicBoolean(false)
 
   //initialize local state variables
   Direction.values.foreach((sourceDirection: Direction.Value) => {
@@ -50,8 +51,8 @@ abstract class TrafficLightActorBase(var transmittableSpeed: Int = 5, var routeC
       transmittable.setEnqueueTime()
       queues(transmittable.entranceDirection)(transmittable.nextTrafficLightDirection).enqueue(transmittable)
     }
-    else
-      log("Car Arrived")
+    //    else
+    //      log("Car Arrived")
   }
 
   def doRouting(route: Route) = {
@@ -93,7 +94,7 @@ abstract class TrafficLightActorBase(var transmittableSpeed: Int = 5, var routeC
       context.system.scheduler.scheduleOnce((transmittableCount * transmittableSpeed * 10).milliseconds, self, route)
     }
     catch {
-      case ex:Exception =>
+      case ex: Exception =>
         println(ex)
     }
   }
@@ -102,7 +103,7 @@ abstract class TrafficLightActorBase(var transmittableSpeed: Int = 5, var routeC
   def getStatus: ActorStatus = {
     val status = new ActorStatus
     status.id = self.path.name.replace("TRAFFIC_LIGHT_", "")
-    status.isUnderAdaptation = isUnderAdaptation
+    status.isUnderAdaptation = isUnderAdaptation.get()
     if (neighbours.contains(North))
       status.neighbourList(North) = neighbours(North).path.name.replace("TRAFFIC_LIGHT_", "")
     if (neighbours.contains(East))
@@ -128,7 +129,7 @@ abstract class TrafficLightActorBase(var transmittableSpeed: Int = 5, var routeC
     if (westCount > 0)
       status.averageWaitTimeList(West) = (waitTimes(West)(North).sum + waitTimes(West)(East).sum + waitTimes(South)(West).sum) / westCount
 
-    status.adaptationCount = if (isUnderAdaptation) 1 else 0
+    status.adaptationCount = if (isUnderAdaptation.get()) 1 else 0
     status.testActorCount = 0
     for (adaptationGroup <- testActors.keySet) {
       status.testActorCount += testActors(adaptationGroup).keySet.size
@@ -137,7 +138,7 @@ abstract class TrafficLightActorBase(var transmittableSpeed: Int = 5, var routeC
     status
   }
 
-  def log(message: String) = {
+  def log(message: Any) = {
     println(s"[${self.path.name}]\t$message")
   }
 }

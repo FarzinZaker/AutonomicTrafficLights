@@ -1,5 +1,6 @@
 package trafficLightSystem
 
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.{Date, UUID}
 
 import akka.actor.{ActorSelection, ActorLogging, ActorRef, Actor}
@@ -7,6 +8,7 @@ import trafficLightSystem.Direction._
 import scala.concurrent.duration._
 
 import scala.collection.mutable
+import scala.concurrent.stm.skel.AtomicArray
 
 object TrafficLightTestActor {
   var instanceCounter = 0
@@ -22,6 +24,8 @@ object TrafficLightTestActor {
   */
 class TrafficLightTestActor(carSpeed: Int = 5, routeCapacity: Int = 60) extends TrafficLightActorBase(carSpeed, routeCapacity) {
 
+  import context._
+
   //  TrafficLightTestActor.currentInstances()
 
   var parent: ActorRef = null
@@ -30,8 +34,8 @@ class TrafficLightTestActor(carSpeed: Int = 5, routeCapacity: Int = 60) extends 
   var adaptationPathSourceDirection: Direction.Value = null
   var adaptationPathDestinationDirection: Direction.Value = null
   var adaptationFactor: Double = 1.0
-  var routingsDone = 0
-  var resultSet = Set[Double]()
+  var routingsDone = new AtomicInteger(0)
+  var resultSet = mutable.ArrayBuffer[Double]()
 
   def isLeader: Boolean = adaptationFactor != 1
 
@@ -46,37 +50,52 @@ class TrafficLightTestActor(carSpeed: Int = 5, routeCapacity: Int = 60) extends 
 
     case tokenRoute: TokenRoute =>
       this.synchronized {
-        routingsDone += 1
-        if (routingsDone <= 20)
+        //        log(s"ROUTINGS DONE:\t${routingsDone.get()}")
+        if (routingsDone.getAndIncrement() < 20)
           doRouting(tokenRoute)
         else {
-//                    var waitTime: Double = 0.0
-//
-//                    Direction.values.foreach((sourceDirection: Direction.Value) => {
-//                      if (sourceDirection != None)
-//                        Direction.values.foreach((destinationDirection: Direction.Value) => {
-//                          if (destinationDirection != None && sourceDirection != destinationDirection &&
-//                            waitTimes.contains(sourceDirection) && waitTimes(sourceDirection).contains(destinationDirection))
-//                            waitTime += waitTimes(sourceDirection)(destinationDirection).average()
-//                        })
-//                    })
-//                    parent ! new PartialTestResult(initiator, adaptationGroupId, adaptationFactor, waitTime)
+          var waitTime: Double = 0.0
+
+          Direction.values.foreach((sourceDirection: Direction.Value) => {
+            if (sourceDirection != None)
+              Direction.values.foreach((destinationDirection: Direction.Value) => {
+                if (destinationDirection != None && sourceDirection != destinationDirection &&
+                  waitTimes.contains(sourceDirection) && waitTimes(sourceDirection).contains(destinationDirection))
+                  waitTime += waitTimes(sourceDirection)(destinationDirection).average()
+              })
+          })
+          getTargetActor(initiator) ! new PartialTestResult(initiator, adaptationGroupId, adaptationFactor, waitTime)
+
+          if(initiator != parent)
+//                    context.system.scheduler.scheduleOnce(5.seconds, parent, new FinishMessage(adaptationGroupId, adaptationFactor))
+            parent ! new FinishMessage(adaptationGroupId, adaptationFactor)
         }
       }
 
     case partialTestResult: PartialTestResult =>
       this.synchronized {
-        resultSet += partialTestResult.value
-        if (resultSet.size >= 64)
-          initiator ! new TestResult(adaptationPathSourceDirection, adaptationPathDestinationDirection, adaptationFactor, resultSet.sum)
+        resultSet.synchronized {
+          resultSet += partialTestResult.value
+        }
+        //        log(s"RESUTL SET:\t${resultSet.size}")
+        if (resultSet.size == 64) {
+          parent ! new TestResult(adaptationGroupId, adaptationPathSourceDirection, adaptationPathDestinationDirection, adaptationFactor, resultSet.sum)
+//          log("Test Result Sent to Parent")
+        }
       }
 
-    case _ => log(s"UNKNOWN")
+    case _ =>
+      log(s"UNKNOWN")
   }
 
   def getTargetActor(actor: ActorRef): ActorSelection = {
-    context.actorSelection(s"/user/${actor.path.name}/TEST_${actor.path.name}_${adaptationGroupId}_$adaptationFactor")
-    //    context.actorSelection( actor.path.toString())
+    context.actorSelection(s"/user/${
+      actor.path.name
+    }/TEST_${
+      actor.path.name
+    }_${
+      adaptationGroupId
+    }_$adaptationFactor")
   }
 
   def init(initData: TestActorInitData) = {
@@ -95,6 +114,7 @@ class TrafficLightTestActor(carSpeed: Int = 5, routeCapacity: Int = 60) extends 
         timings(sourceDirection)(destinationDirection) = initData.currentTimings(sourceDirection)(destinationDirection)
       })
     })
+
     if (initData.applyAdaptation)
       timings(adaptationPathSourceDirection)(adaptationPathDestinationDirection) += adaptationFactor
   }
@@ -106,6 +126,7 @@ class TrafficLightTestActor(carSpeed: Int = 5, routeCapacity: Int = 60) extends 
         totalTiming += timings(sourceDirection)(destinationDirection)
       })
     })
+
     val transmittableCount = math.ceil(timings(tokenRoute.sourceDirection)(tokenRoute.destinationDirection) * routeCapacity / (totalTiming * transmittableSpeed)).toInt
     for (i <- 0 until transmittableCount)
       if (queues(tokenRoute.sourceDirection)(tokenRoute.destinationDirection).nonEmpty) {

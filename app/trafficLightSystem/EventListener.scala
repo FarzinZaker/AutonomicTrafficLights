@@ -8,6 +8,6 @@ import akka.actor.{DeadLetter, Actor}
 class EventListener extends Actor {
   def receive = {
     case d: DeadLetter =>
-      println(d)
+//      println(d)
   }
 }

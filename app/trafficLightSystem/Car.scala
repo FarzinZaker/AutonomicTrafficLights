@@ -1,5 +1,6 @@
 package trafficLightSystem
 
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.{UUID, Date}
 
 import scala.collection.mutable
@@ -22,5 +23,16 @@ object Car {
 }
 
 class Car(path: Path) extends Transmittable(path) {
+
+  private val _isNew = new AtomicBoolean(true)
+
+  def isNew : Boolean = {
+    _isNew.get()
+  }
+
+  override def move(): Transmittable = {
+    _isNew.set(false)
+    super.move()
+  }
 
 }

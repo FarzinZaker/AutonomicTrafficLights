@@ -14,7 +14,7 @@ class TrafficLightAdaptiveActor(carSpeed: Int = 5, routeCapacity: Int = 600) ext
 
     case car: Car => handleNewTransmittable(car)
 
-    case "CLEAR_UNDER_ADAPTATION" => isUnderAdaptation = false
+    case "CLEAR_UNDER_ADAPTATION" => isUnderAdaptation.set(false)
 
     case route: Route => doRouting(route)
 
@@ -34,7 +34,7 @@ class TrafficLightAdaptiveActor(carSpeed: Int = 5, routeCapacity: Int = 600) ext
 
     if (queues(car.entranceDirection)(car.nextTrafficLightDirection).size < totalQueueSize &&
       queues(car.entranceDirection)(car.nextTrafficLightDirection).size > totalQueueSize / 6) {
-      isUnderAdaptation = true
+      isUnderAdaptation.set(true)
       timings(car.entranceDirection)(car.nextTrafficLightDirection) += 0.2
 
       context.system.scheduler.scheduleOnce(5.seconds, self, "CLEAR_UNDER_ADAPTATION")
