@@ -1,7 +1,7 @@
 package controllers
 
 import play.api.mvc._
-import trafficLightSystem.{DataSource, TrafficLightAdaptiveWithAssuranceGrid, TrafficLightAdaptiveGrid, TrafficLightGrid}
+import trafficLightSystem._
 
 object Application extends Controller {
 

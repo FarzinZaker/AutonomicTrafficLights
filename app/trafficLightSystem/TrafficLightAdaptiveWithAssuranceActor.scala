@@ -11,7 +11,7 @@ import scala.concurrent.duration._
   * Created by root on 2/27/16.
   */
 
-class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: Int = 600) extends TrafficLightActorBase(carSpeed, routeCapacity) with InputCarCounter {
+class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: Int = 600) extends TrafficLightActorBase(carSpeed, routeCapacity) {
 
   import context._
 
@@ -23,19 +23,24 @@ class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: I
   var currentAdaptationGroupId: UUID = null
   var routedCars = mutable.HashMap[UUID, Int]()
 
-  context.system.scheduler.schedule(0.seconds, 10.milliseconds, self, "ELAPSE_TIMER")
+  val inputCarCounter = new InputCarCounter
+  var inputCarDestinationHistory = new InputCarDestinationHistory
+
+  context.system.scheduler.schedule(0.seconds, 1000.milliseconds, self, "ELAPSE_TIMER")
 
   def receive = {
 
-    case "ELAPSE_TIMER" => elapseTimer()
+    case "ELAPSE_TIMER" => inputCarCounter.elapseTimer()
 
     case neighbour: Neighbour => this.synchronized {
       neighbours(neighbour.direction) = sender()
     }
 
     case car: Car => this.synchronized {
-      if(car.isNew)
-        increaseCarsCount()
+      if (car.isNew) {
+        inputCarCounter.increaseCarsCount()
+        inputCarDestinationHistory.recordCarDestination(car.sourceRow, car.destinationRow)
+      }
       handleNewTransmittable(car)
     }
 
