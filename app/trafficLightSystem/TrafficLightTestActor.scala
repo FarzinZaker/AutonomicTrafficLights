@@ -48,41 +48,17 @@ class TrafficLightTestActor(carSpeed: Int = 5, routeCapacity: Int = 60) extends 
       handleNewTransmittable(token)
     }
 
-    case tokenRoute: TokenRoute =>
-      this.synchronized {
-        //        log(s"ROUTINGS DONE:\t${routingsDone.get()}")
-        if (routingsDone.getAndIncrement() < 20)
-          doRouting(tokenRoute)
-        else {
-          var waitTime: Double = 0.0
+    case predictedInputCars: mutable.Queue[mutable.Queue[Car]] => this.synchronized {
+      handlePredictedInputCars(predictedInputCars)
+    }
 
-          Direction.values.foreach((sourceDirection: Direction.Value) => {
-            if (sourceDirection != None)
-              Direction.values.foreach((destinationDirection: Direction.Value) => {
-                if (destinationDirection != None && sourceDirection != destinationDirection &&
-                  waitTimes.contains(sourceDirection) && waitTimes(sourceDirection).contains(destinationDirection))
-                  waitTime += waitTimes(sourceDirection)(destinationDirection).average()
-              })
-          })
-          getTargetActor(initiator) ! new PartialTestResult(initiator, adaptationGroupId, adaptationFactor, waitTime)
+    case tokenRoute: TokenRoute => this.synchronized {
+      doRouting(tokenRoute)
+    }
 
-          if(initiator != parent)
-//                    context.system.scheduler.scheduleOnce(5.seconds, parent, new FinishMessage(adaptationGroupId, adaptationFactor))
-            parent ! new FinishMessage(adaptationGroupId, adaptationFactor)
-        }
-      }
-
-    case partialTestResult: PartialTestResult =>
-      this.synchronized {
-        resultSet.synchronized {
-          resultSet += partialTestResult.value
-        }
-        //        log(s"RESUTL SET:\t${resultSet.size}")
-        if (resultSet.size == 64) {
-          parent ! new TestResult(adaptationGroupId, adaptationPathSourceDirection, adaptationPathDestinationDirection, adaptationFactor, resultSet.sum)
-//          log("Test Result Sent to Parent")
-        }
-      }
+    case partialTestResult: PartialTestResult => this.synchronized {
+      handlePartialTestResult(partialTestResult)
+    }
 
     case _ =>
       log(s"UNKNOWN")
@@ -119,42 +95,81 @@ class TrafficLightTestActor(carSpeed: Int = 5, routeCapacity: Int = 60) extends 
       timings(adaptationPathSourceDirection)(adaptationPathDestinationDirection) += adaptationFactor
   }
 
-  def doRouting(tokenRoute: TokenRoute) = {
-    var totalTiming = 0.0
-    Direction.values.foreach((sourceDirection: Direction.Value) => {
-      Direction.values.foreach((destinationDirection: Direction.Value) => {
-        totalTiming += timings(sourceDirection)(destinationDirection)
-      })
-    })
-
-    val transmittableCount = math.ceil(timings(tokenRoute.sourceDirection)(tokenRoute.destinationDirection) * routeCapacity / (totalTiming * transmittableSpeed)).toInt
-    for (i <- 0 until transmittableCount)
-      if (queues(tokenRoute.sourceDirection)(tokenRoute.destinationDirection).nonEmpty) {
-        val transmittable = queues(tokenRoute.sourceDirection)(tokenRoute.destinationDirection).dequeue()
-        transmittable.elapseTime(transmittableSpeed)
-        if (neighbours.contains(tokenRoute.destinationDirection)) {
-          waitTimes(tokenRoute.sourceDirection)(tokenRoute.destinationDirection) += transmittable.waitTime
-          transmittable.waitStack.push(transmittable.waitTime)
-          getTargetActor(neighbours(tokenRoute.destinationDirection)) ! transmittable.move()
-        }
-        else
-          queues(tokenRoute.sourceDirection)(tokenRoute.destinationDirection).enqueue(transmittable)
+  def handlePredictedInputCars(inputCars: mutable.Queue[mutable.Queue[Car]]) = {
+    if (inputCars.nonEmpty) {
+      val currentCarList = inputCars.dequeue()
+      for (car <- currentCarList) {
+        self ! Token(car.asInstanceOf[Car], adaptationGroupId, adaptationFactor)
       }
-
-    Direction.values.foreach((sourceDirection: Direction.Value) => {
-      Direction.values.foreach((destinationDirection: Direction.Value) => {
-        for (transmittable <- queues(sourceDirection)(destinationDirection)) {
-          transmittable.elapseTime(transmittableCount * transmittableSpeed)
-        }
-      })
-    })
-
-    tokenRoute.destinationDirection = Direction.next(tokenRoute.destinationDirection)
-    if (tokenRoute.sourceDirection == tokenRoute.destinationDirection) {
-      tokenRoute.sourceDirection = Direction.next(tokenRoute.sourceDirection)
-      tokenRoute.destinationDirection = Direction.opponent(tokenRoute.destinationDirection)
+      context.system.scheduler.scheduleOnce(10.milliseconds, self, inputCars)
     }
-    self ! tokenRoute
+  }
+
+  def doRouting(tokenRoute: TokenRoute) = {
+
+    if (routingsDone.getAndIncrement() < 20) {
+      var totalTiming = 0.0
+      Direction.values.foreach((sourceDirection: Direction.Value) => {
+        Direction.values.foreach((destinationDirection: Direction.Value) => {
+          totalTiming += timings(sourceDirection)(destinationDirection)
+        })
+      })
+
+      val transmittableCount = math.ceil(timings(tokenRoute.sourceDirection)(tokenRoute.destinationDirection) * routeCapacity / (totalTiming * transmittableSpeed)).toInt
+      for (i <- 0 until transmittableCount)
+        if (queues(tokenRoute.sourceDirection)(tokenRoute.destinationDirection).nonEmpty) {
+          val transmittable = queues(tokenRoute.sourceDirection)(tokenRoute.destinationDirection).dequeue()
+          transmittable.elapseTime(transmittableSpeed)
+          if (neighbours.contains(tokenRoute.destinationDirection)) {
+            waitTimes(tokenRoute.sourceDirection)(tokenRoute.destinationDirection) += transmittable.waitTime
+            transmittable.waitStack.push(transmittable.waitTime)
+            getTargetActor(neighbours(tokenRoute.destinationDirection)) ! transmittable.move()
+          }
+          else
+            queues(tokenRoute.sourceDirection)(tokenRoute.destinationDirection).enqueue(transmittable)
+        }
+
+      Direction.values.foreach((sourceDirection: Direction.Value) => {
+        Direction.values.foreach((destinationDirection: Direction.Value) => {
+          for (transmittable <- queues(sourceDirection)(destinationDirection)) {
+            transmittable.elapseTime(transmittableCount * transmittableSpeed)
+          }
+        })
+      })
+
+      tokenRoute.destinationDirection = Direction.next(tokenRoute.destinationDirection)
+      if (tokenRoute.sourceDirection == tokenRoute.destinationDirection) {
+        tokenRoute.sourceDirection = Direction.next(tokenRoute.sourceDirection)
+        tokenRoute.destinationDirection = Direction.opponent(tokenRoute.destinationDirection)
+      }
+      self ! tokenRoute
+    }
+    else {
+      var waitTime: Double = 0.0
+
+      Direction.values.foreach((sourceDirection: Direction.Value) => {
+        if (sourceDirection != None)
+          Direction.values.foreach((destinationDirection: Direction.Value) => {
+            if (destinationDirection != None && sourceDirection != destinationDirection &&
+              waitTimes.contains(sourceDirection) && waitTimes(sourceDirection).contains(destinationDirection))
+              waitTime += waitTimes(sourceDirection)(destinationDirection).average()
+          })
+      })
+      getTargetActor(initiator) ! new PartialTestResult(initiator, adaptationGroupId, adaptationFactor, waitTime)
+
+      if (initiator != parent)
+      //                    context.system.scheduler.scheduleOnce(5.seconds, parent, new FinishMessage(adaptationGroupId, adaptationFactor))
+        parent ! new FinishMessage(adaptationGroupId, adaptationFactor)
+    }
+  }
+
+  def handlePartialTestResult(partialTestResult: PartialTestResult) = {
+    resultSet.synchronized {
+      resultSet += partialTestResult.value
+    }
+    if (resultSet.size == 64) {
+      parent ! new TestResult(adaptationGroupId, adaptationPathSourceDirection, adaptationPathDestinationDirection, adaptationFactor, resultSet.sum)
+    }
   }
 
 }

@@ -138,6 +138,14 @@ abstract class TrafficLightActorBase(var transmittableSpeed: Int = 5, var routeC
     status
   }
 
+  def row() : Int = {
+    self.path.name.split('_')(1).toInt
+  }
+
+  def column() : Int = {
+    self.path.name.split('_')(2).toInt
+  }
+
   def log(message: Any) = {
     println(s"[${self.path.name}]\t$message")
   }
