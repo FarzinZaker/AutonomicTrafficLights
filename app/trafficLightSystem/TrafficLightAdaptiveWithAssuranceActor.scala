@@ -11,7 +11,7 @@ import scala.concurrent.duration._
   * Created by root on 2/27/16.
   */
 
-class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: Int = 600) extends TrafficLightActorBase(carSpeed, routeCapacity) {
+class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: Int = 600) extends TrafficLightActorBase(carSpeed, routeCapacity) with InputCarPrediction {
 
   import context._
 
@@ -23,14 +23,11 @@ class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: I
   var currentAdaptationGroupId: UUID = null
   var routedCars = mutable.HashMap[UUID, Int]()
 
-  val inputCarCounter = new InputCarCounter
-  var inputCarDestinationHistory = new InputCarDestinationHistory
-
   context.system.scheduler.schedule(0.seconds, 1000.milliseconds, self, "ELAPSE_TIMER")
 
   def receive = {
 
-    case "ELAPSE_TIMER" => inputCarCounter.elapseTimer()
+    case "ELAPSE_TIMER" => elapseTimer()
 
     case neighbour: Neighbour => this.synchronized {
       neighbours(neighbour.direction) = sender()
@@ -38,18 +35,14 @@ class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: I
 
     case car: Car => this.synchronized {
       if (car.isNew) {
-        inputCarCounter.increaseCarsCount()
-        inputCarDestinationHistory.recordCarDestination(car.sourceRow, car.destinationRow)
+        increaseCarsCount()
+        recordCarDestination(car.sourceRow, car.destinationRow)
       }
       handleNewTransmittable(car)
     }
 
     case route: Route => this.synchronized {
-      //      if (isUnderAdaptation.get())
-      //        context.system.scheduler.scheduleOnce(1.seconds, self, route)
-      //      else
       doRouting(route)
-
     }
 
     case adaptationMessage: AdaptationMessage => this.synchronized {
@@ -66,7 +59,6 @@ class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: I
 
     case testResult: TestResult =>
       this.synchronized {
-        //        log(testResult.toString)
         if (!testResults.contains(testResult.adaptationPathSourceDirection))
           testResults += testResult.adaptationPathSourceDirection -> mutable.HashMap[Direction.Value, mutable.HashMap[Double, Double]]()
         if (!testResults(testResult.adaptationPathSourceDirection).contains(testResult.adaptationPathDestinationDirection))
@@ -82,13 +74,11 @@ class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: I
               selectedAdaptationFactor = factor
             }
           }
-          //          println(s"adaptation factor: $selectedAdaptationFactor")
           timings(testResult.adaptationPathSourceDirection)(testResult.adaptationPathDestinationDirection) += selectedAdaptationFactor
           testResults(testResult.adaptationPathSourceDirection) -= testResult.adaptationPathDestinationDirection
           finishTestActor(testResult.adaptationGroupId, testResult.adaptationFactor)
 
           self ! "CLEAR_UNDER_ADAPTATION"
-          //          context.system.scheduler.scheduleOnce(5.seconds, self, "CLEAR_UNDER_ADAPTATION")
         }
       }
 
