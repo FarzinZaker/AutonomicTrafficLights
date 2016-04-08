@@ -87,7 +87,7 @@ class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: I
     case "CLEAR_UNDER_ADAPTATION" => isUnderAdaptation.set(false)
 
     case "GET_ACTOR_STATUS" => this.synchronized {
-      sender ! getStatus
+      sender ! this
     }
 
     case _ =>
@@ -156,7 +156,15 @@ class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: I
   def handleAdaptationStepCommand(adaptationStepCommand: AdaptationStepCommand) = {
     val currentTestActors = testActors(adaptationStepCommand.adaptationGroupId)
     if (adaptationStepCommand.command == "START_ROUTING") {
+      def predictedInputCars = predictNextCars(20, row(), column())
+//            log(predictedInputCars.map{_.size})
       for (testActor <- currentTestActors.values) {
+//        if (predictedInputCars.exists {
+//          _.nonEmpty
+//        })
+//          testActor ! new PredictionResult(predictedInputCars.clone())
+
+        //        context.system.scheduler.scheduleOnce(1000.milliseconds, self, TokenRoute(Direction.South, Direction.East))
         testActor ! TokenRoute(Direction.South, Direction.East)
       }
     }

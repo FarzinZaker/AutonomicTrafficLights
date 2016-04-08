@@ -21,8 +21,8 @@
                 updateAdaptiveWithAssuranceModel(response.nodes, response.links, response.cars);
                 $('#adaptiveWithAssuranceStatusFlag').html(response.status);
                 $('#adaptiveWithAssuranceCarsFlag').html(response.enqueuedCars);
-                loadAdaptiveWithAssuranceStatus();
-//                        setTimeout(loadStatus, 1000);
+//                loadAdaptiveWithAssuranceStatus();
+                setTimeout(loadAdaptiveWithAssuranceStatus, 1000);
             }
         });
     }

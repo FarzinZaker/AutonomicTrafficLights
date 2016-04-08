@@ -1,6 +1,7 @@
 package trafficLightSystem
 
 import scala.concurrent.duration._
+
 /**
   * Created by root on 2/27/16.
   */
@@ -12,13 +13,15 @@ class TrafficLightAdaptiveActor(carSpeed: Int = 5, routeCapacity: Int = 600) ext
 
     case neighbour: Neighbour => neighbours(neighbour.direction) = sender()
 
-    case car: Car => handleNewTransmittable(car)
+    case car: Car =>
+      handleNewTransmittable(car)
+//      Thread.sleep(100)
 
     case "CLEAR_UNDER_ADAPTATION" => isUnderAdaptation.set(false)
 
     case route: Route => doRouting(route)
 
-    case "GET_ACTOR_STATUS" => sender ! getStatus
+    case "GET_ACTOR_STATUS" => sender ! this
 
     case _ =>
   }

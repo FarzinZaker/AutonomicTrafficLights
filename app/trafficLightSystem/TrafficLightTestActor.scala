@@ -48,9 +48,9 @@ class TrafficLightTestActor(carSpeed: Int = 5, routeCapacity: Int = 60) extends 
       handleNewTransmittable(token)
     }
 
-    case predictedInputCars: mutable.Queue[mutable.Queue[Car]] => this.synchronized {
-      handlePredictedInputCars(predictedInputCars)
-    }
+//    case predictionResult: PredictionResult => this.synchronized {
+//      handlePredictedInputCars(predictionResult)
+//    }
 
     case tokenRoute: TokenRoute => this.synchronized {
       doRouting(tokenRoute)
@@ -61,7 +61,7 @@ class TrafficLightTestActor(carSpeed: Int = 5, routeCapacity: Int = 60) extends 
     }
 
     case _ =>
-      log(s"UNKNOWN")
+//      log(s"UNKNOWN")
   }
 
   def getTargetActor(actor: ActorRef): ActorSelection = {
@@ -95,13 +95,14 @@ class TrafficLightTestActor(carSpeed: Int = 5, routeCapacity: Int = 60) extends 
       timings(adaptationPathSourceDirection)(adaptationPathDestinationDirection) += adaptationFactor
   }
 
-  def handlePredictedInputCars(inputCars: mutable.Queue[mutable.Queue[Car]]) = {
-    if (inputCars.nonEmpty) {
-      val currentCarList = inputCars.dequeue()
+  def handlePredictedInputCars(predictionResult: PredictionResult) = {
+    if (predictionResult.cars.nonEmpty) {
+      val currentCarList = predictionResult.cars.dequeue()
       for (car <- currentCarList) {
         self ! Token(car.asInstanceOf[Car], adaptationGroupId, adaptationFactor)
       }
-      context.system.scheduler.scheduleOnce(10.milliseconds, self, inputCars)
+      //      context.system.scheduler.scheduleOnce(10.milliseconds, self, inputCars)
+      self ! predictionResult
     }
   }
 
@@ -170,6 +171,18 @@ class TrafficLightTestActor(carSpeed: Int = 5, routeCapacity: Int = 60) extends 
     if (resultSet.size == 64) {
       parent ! new TestResult(adaptationGroupId, adaptationPathSourceDirection, adaptationPathDestinationDirection, adaptationFactor, resultSet.sum)
     }
+  }
+
+  override def row(): Int = {
+    if (rowNumber == 0)
+      rowNumber = self.path.name.split('_')(3).toInt
+    rowNumber
+  }
+
+  override def column(): Int = {
+    if (columnNumber == 0)
+      columnNumber = self.path.name.split('_')(4).toInt
+    columnNumber
   }
 
 }

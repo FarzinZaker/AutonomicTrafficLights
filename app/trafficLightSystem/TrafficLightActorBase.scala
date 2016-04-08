@@ -138,12 +138,20 @@ abstract class TrafficLightActorBase(var transmittableSpeed: Int = 5, var routeC
     status
   }
 
-  def row() : Int = {
-    self.path.name.split('_')(1).toInt
+  protected var rowNumber: Int = 0
+
+  def row(): Int = {
+    if (rowNumber == 0)
+      rowNumber = self.path.name.split('_')(2).toInt
+    rowNumber
   }
 
-  def column() : Int = {
-    self.path.name.split('_')(2).toInt
+  protected var columnNumber: Int = 0
+
+  def column(): Int = {
+    if (columnNumber == 0)
+      columnNumber = self.path.name.split('_')(3).toInt
+    columnNumber
   }
 
   def log(message: Any) = {

@@ -21,8 +21,8 @@
                 updateAdaptiveModel(response.nodes, response.links, response.cars);
                 $('#adaptiveStatusFlag').html(response.status);
                 $('#adaptiveCarsFlag').html(response.enqueuedCars);
-                loadAdaptiveStatus();
-//                        setTimeout(loadStatus, 1000);
+//                loadAdaptiveStatus();
+                setTimeout(loadAdaptiveStatus, 1000);
             }
         });
     }

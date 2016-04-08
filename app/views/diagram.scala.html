@@ -21,8 +21,8 @@
                 updateModel(response.nodes, response.links, response.cars);
                 $('#statusFlag').html(response.status);
                 $('#carsFlag').html(response.enqueuedCars);
-                loadStatus();
-//                        setTimeout(loadStatus, 1000);
+//                loadStatus();
+                setTimeout(loadStatus, 1000);
             }
         });
     }

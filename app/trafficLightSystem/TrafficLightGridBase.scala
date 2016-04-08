@@ -47,7 +47,11 @@ abstract class TrafficLightGridBase(name: String = "TRAFFIC_LIGHT_SYSTEM", rowsC
     i <- 0 until rowsCount
     j <- 0 until columnsCount
   } {
+    //    gridActors(i)(j) = createActorInstance
     grid(i)(j) = system.actorOf(Props(createActorInstance).withDispatcher(s"${name.toLowerCase()}-prio-dispatcher"), s"TRAFFIC_LIGHT_${i + 1}_${j + 1}")
+    implicit val timeout = Timeout(1.hour)
+    val future = grid(i)(j) ? "GET_ACTOR_STATUS"
+    gridActors(i)(j) = Await.result(future, timeout.duration).asInstanceOf[TrafficLightActorBase]
   }
 
   //set neighbours
@@ -81,34 +85,42 @@ abstract class TrafficLightGridBase(name: String = "TRAFFIC_LIGHT_SYSTEM", rowsC
       i <- 0 until rowsCount
       j <- 0 until columnsCount
     } {
-      actorStatusList += null
+      if (gridActors(i)(j) != null)
+        actorStatusList += gridActors(i)(j).getStatus
     }
 
-    implicit val timeout = Timeout(60 seconds)
-
-    val threads = Array.ofDim[Thread](rowsCount, columnsCount)
-    for {
-      i <- 0 until rowsCount
-      j <- 0 until columnsCount
-    } {
-      threads(i)(j) = new Thread(new Runnable {
-        override def run(): Unit = {
-          val future = grid(i)(j) ? "GET_ACTOR_STATUS"
-          try {
-            actorStatusList += Await.result(future, timeout.duration).asInstanceOf[ActorStatus]
-          } catch {
-            case _:Throwable =>
-          }
-        }
-      })
-      threads(i)(j).start()
-    }
-    for {
-      i <- 0 until rowsCount
-      j <- 0 until columnsCount
-    } {
-      threads(i)(j).join()
-    }
+    //    for {
+    //      i <- 0 until rowsCount
+    //      j <- 0 until columnsCount
+    //    } {
+    //      actorStatusList += null
+    //    }
+    //
+    //    implicit val timeout = Timeout(60.seconds)
+    //
+    //    val threads = Array.ofDim[Thread](rowsCount, columnsCount)
+    //    for {
+    //      i <- 0 until rowsCount
+    //      j <- 0 until columnsCount
+    //    } {
+    //      threads(i)(j) = new Thread(new Runnable {
+    //        override def run(): Unit = {
+    //          val future = grid(i)(j) ? "GET_ACTOR_STATUS"
+    //          try {
+    //            actorStatusList += Await.result(future, timeout.duration).asInstanceOf[ActorStatus]
+    //          } catch {
+    //            case _:Throwable =>
+    //          }
+    //        }
+    //      })
+    //      threads(i)(j).start()
+    //    }
+    //    for {
+    //      i <- 0 until rowsCount
+    //      j <- 0 until columnsCount
+    //    } {
+    //      threads(i)(j).join()
+    //    }
 
 
     val nodes = new ArrayBuffer[JsObject]
@@ -174,7 +186,7 @@ abstract class TrafficLightGridBase(name: String = "TRAFFIC_LIGHT_SYSTEM", rowsC
 
     val arrivedCars = getArrivedCarsList
     JsObject(Seq(
-      "nodes" -> JsArray(nodes toSeq),
+      "nodes" -> JsArray(nodes.toSeq),
       "links" -> JsArray(links toSeq),
       "status" -> JsString(if (DataSource.feedingRound > DataSource.feedingRounds) "FEEDING COMPLETED" else s"FEEDING ROUND: ${DataSource.feedingRound}"),
       "enqueuedCars" -> JsString(if (enqueuedCars < 1) "NO WAITING CAR" else s"WAITING CARS: $enqueuedCars"),
