@@ -73,12 +73,12 @@ class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: I
               selectedAdaptationFactor = factor
             }
           }
-//          timings(testResult.adaptationPathSourceDirection)(testResult.adaptationPathDestinationDirection) += selectedAdaptationFactor
+          //          timings(testResult.adaptationPathSourceDirection)(testResult.adaptationPathDestinationDirection) += selectedAdaptationFactor
           testResults(testResult.adaptationPathSourceDirection) -= testResult.adaptationPathDestinationDirection
           finishTestActor(testResult.adaptationGroupId, testResult.adaptationFactor)
 
           context.system.scheduler.scheduleOnce((10000 - elapsedAdaptationTime).milliseconds, self, new AdaptationApplyCommand(testResult.adaptationPathSourceDirection, testResult.adaptationPathDestinationDirection, selectedAdaptationFactor))
-//          self ! new AdaptationApplyCommand(testResult.adaptationPathSourceDirection, testResult.adaptationPathDestinationDirection, selectedAdaptationFactor)
+          //          self ! new AdaptationApplyCommand(testResult.adaptationPathSourceDirection, testResult.adaptationPathDestinationDirection, selectedAdaptationFactor)
         }
       }
 
@@ -89,7 +89,7 @@ class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: I
       timings(adaptationApplyCommand.sourceDirection)(adaptationApplyCommand.destinationDirection) += adaptationApplyCommand.adaptationFactor
       endAdaptation()
 
-//    case "CLEAR_UNDER_ADAPTATION" => endAdaptation()
+    //    case "CLEAR_UNDER_ADAPTATION" => endAdaptation()
 
     case "GET_ACTOR_STATUS" => this.synchronized {
       sender ! this
@@ -110,6 +110,7 @@ class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: I
 
     if (adaptationRequired(car)) {
       startAdaptation()
+//      timings(car.entranceDirection)(car.nextTrafficLightDirection) += 0.4
       phaseSwitchMessageCounter = 0
       currentAdaptationGroupId = IdGenerator.get()
       broadcast(new AdaptationMessage(self, currentAdaptationGroupId, adaptationArray, car.entranceDirection, car.nextTrafficLightDirection))
