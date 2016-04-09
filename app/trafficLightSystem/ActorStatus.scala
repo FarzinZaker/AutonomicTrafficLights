@@ -40,6 +40,7 @@ class ActorStatus {
 
   var adaptationCount = 0
   var testActorCount = 0
+  var averageAdaptationTime = 0L
 
   def getQueueSize: Int = {
     queueSizeList(North) + queueSizeList(East) + queueSizeList(South) + queueSizeList(West)

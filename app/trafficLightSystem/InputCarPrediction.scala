@@ -1,5 +1,6 @@
 package trafficLightSystem
 
+import java.util.Date
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 
 import org.encog.ml.data.versatile.VersatileDataSource

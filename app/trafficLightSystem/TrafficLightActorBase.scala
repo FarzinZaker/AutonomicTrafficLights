@@ -1,7 +1,7 @@
 package trafficLightSystem
 
-import java.util.UUID
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
+import java.util.{Date, UUID}
+import java.util.concurrent.atomic.{AtomicLong, AtomicBoolean, AtomicInteger}
 
 import akka.actor.{ActorSelection, ActorRef, Actor}
 import Direction._
@@ -30,6 +30,10 @@ abstract class TrafficLightActorBase(var transmittableSpeed: Int = 5, var routeC
   protected val timings = mutable.HashMap[Direction.Value, mutable.HashMap[Direction.Value, Double]]()
   protected val testActors = mutable.HashMap[UUID, mutable.HashMap[Double, ActorRef]]()
   protected var isUnderAdaptation = new AtomicBoolean(false)
+  protected val adaptationTimes = new Average()
+  protected var rowNumber: Int = 0
+  protected var columnNumber: Int = 0
+  protected var adaptationStartTime = new AtomicLong(0)
 
   //initialize local state variables
   Direction.values.foreach((sourceDirection: Direction.Value) => {
@@ -56,6 +60,8 @@ abstract class TrafficLightActorBase(var transmittableSpeed: Int = 5, var routeC
   }
 
   def doRouting(route: Route) = {
+//    while (isUnderAdaptation.get())
+//      Thread.sleep(100)
     try {
       var totalTiming = 0.0
       Direction.values.foreach((sourceDirection: Direction.Value) => {
@@ -135,18 +141,39 @@ abstract class TrafficLightActorBase(var transmittableSpeed: Int = 5, var routeC
       status.testActorCount += testActors(adaptationGroup).keySet.size
     }
 
+    status.averageAdaptationTime = adaptationTimes.average()
+
     status
   }
 
-  protected var rowNumber: Int = 0
+  def adaptationRequired(car: Car): Boolean = {
+    var totalQueueSize = 0L
+    Direction.values.foreach((sourceDirection: Direction.Value) => {
+      Direction.values.foreach((destinationDirection: Direction.Value) => {
+        totalQueueSize += queues(sourceDirection)(destinationDirection).size
+      })
+    })
+    !isUnderAdaptation.get() &&
+      queues(car.entranceDirection)(car.nextTrafficLightDirection).size < totalQueueSize &&
+      queues(car.entranceDirection)(car.nextTrafficLightDirection).size > totalQueueSize / 6
+  }
+
+  def startAdaptation() = {
+    isUnderAdaptation.set(true)
+    adaptationStartTime.set(new Date().getTime)
+  }
+
+  def endAdaptation() = {
+    isUnderAdaptation.set(false)
+    adaptationTimes += (new Date().getTime - adaptationStartTime.get())
+  }
+
 
   def row(): Int = {
     if (rowNumber == 0)
       rowNumber = self.path.name.split('_')(2).toInt
     rowNumber
   }
-
-  protected var columnNumber: Int = 0
 
   def column(): Int = {
     if (columnNumber == 0)

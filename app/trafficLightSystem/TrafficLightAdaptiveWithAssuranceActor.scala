@@ -74,17 +74,22 @@ class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: I
               selectedAdaptationFactor = factor
             }
           }
-          timings(testResult.adaptationPathSourceDirection)(testResult.adaptationPathDestinationDirection) += selectedAdaptationFactor
+//          timings(testResult.adaptationPathSourceDirection)(testResult.adaptationPathDestinationDirection) += selectedAdaptationFactor
           testResults(testResult.adaptationPathSourceDirection) -= testResult.adaptationPathDestinationDirection
           finishTestActor(testResult.adaptationGroupId, testResult.adaptationFactor)
 
-          self ! "CLEAR_UNDER_ADAPTATION"
+          self ! new AdaptationApplyCommand(testResult.adaptationPathSourceDirection, testResult.adaptationPathDestinationDirection, selectedAdaptationFactor)
         }
       }
 
     case finishMessage: FinishMessage => finishTestActor(finishMessage.adaptationGroupId, finishMessage.adaptationFactor)
 
-    case "CLEAR_UNDER_ADAPTATION" => isUnderAdaptation.set(false)
+
+    case adaptationApplyCommand: AdaptationApplyCommand =>
+      timings(adaptationApplyCommand.sourceDirection)(adaptationApplyCommand.destinationDirection) += adaptationApplyCommand.adaptationFactor
+      endAdaptation()
+
+//    case "CLEAR_UNDER_ADAPTATION" => endAdaptation()
 
     case "GET_ACTOR_STATUS" => this.synchronized {
       sender ! this
@@ -102,17 +107,9 @@ class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: I
       routedCars(car.id) += 1
       log(s"REPETITIVE:\t${car.id}\t${routedCars(car.id)}")
     }
-    var totalQueueSize = 0L
-    Direction.values.foreach((sourceDirection: Direction.Value) => {
-      Direction.values.foreach((destinationDirection: Direction.Value) => {
-        totalQueueSize += queues(sourceDirection)(destinationDirection).size
-      })
-    })
 
-    if (!isUnderAdaptation.get() &&
-      queues(car.entranceDirection)(car.nextTrafficLightDirection).size < totalQueueSize &&
-      queues(car.entranceDirection)(car.nextTrafficLightDirection).size > totalQueueSize / 6) {
-      isUnderAdaptation.set(true)
+    if (adaptationRequired(car)) {
+      startAdaptation()
       phaseSwitchMessageCounter = 0
       currentAdaptationGroupId = UUID.randomUUID()
       broadcast(new AdaptationMessage(self, currentAdaptationGroupId, adaptationArray, car.entranceDirection, car.nextTrafficLightDirection))
@@ -128,7 +125,7 @@ class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: I
         testActorData = new TestActorInitData(self, adaptationMessage.initiator, neighbours, timings, adaptationMessage.adaptationGroupId, adaptationFactor, true, adaptationMessage.adaptationSourceDirection, adaptationMessage.adaptationDestinationDirection)
       else
         testActorData = new TestActorInitData(self, adaptationMessage.initiator, neighbours, timings, adaptationMessage.adaptationGroupId, adaptationFactor)
-      val testActorRef = context.actorOf(Props(new TrafficLightTestActor()).withDispatcher(s"${"ADAPTIVE_WITH_ASSURANCE_TRAFFIC_LIGHT_SYSTEM".toLowerCase()}-prio-dispatcher"), s"TEST_${self.path.name}_${adaptationMessage.adaptationGroupId}_$adaptationFactor")
+      val testActorRef = context.actorOf(Props(new TrafficLightTestActor()).withDispatcher(s"${"ADAPTIVE_WITH_ASSURANCE_TRAFFIC_LIGHT_SYSTEM".toLowerCase()}-prio-test-dispatcher"), s"TEST_${self.path.name}_${adaptationMessage.adaptationGroupId}_$adaptationFactor")
       if (!testActors.contains(adaptationMessage.adaptationGroupId))
         testActors += adaptationMessage.adaptationGroupId -> mutable.HashMap()
       if (!testActors(adaptationMessage.adaptationGroupId).contains(adaptationFactor))
@@ -157,12 +154,12 @@ class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: I
     val currentTestActors = testActors(adaptationStepCommand.adaptationGroupId)
     if (adaptationStepCommand.command == "START_ROUTING") {
       def predictedInputCars = predictNextCars(20, row(), column())
-//            log(predictedInputCars.map{_.size})
+      //            log(predictedInputCars.map{_.size})
       for (testActor <- currentTestActors.values) {
-//        if (predictedInputCars.exists {
-//          _.nonEmpty
-//        })
-//          testActor ! new PredictionResult(predictedInputCars.clone())
+        if (predictedInputCars.exists {
+          _.nonEmpty
+        })
+          testActor ! new PredictionResult(predictedInputCars.clone())
 
         //        context.system.scheduler.scheduleOnce(1000.milliseconds, self, TokenRoute(Direction.South, Direction.East))
         testActor ! TokenRoute(Direction.South, Direction.East)

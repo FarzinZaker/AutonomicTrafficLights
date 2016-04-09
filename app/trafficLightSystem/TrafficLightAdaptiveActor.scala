@@ -11,36 +11,41 @@ class TrafficLightAdaptiveActor(carSpeed: Int = 5, routeCapacity: Int = 600) ext
 
   def receive = {
 
-    case neighbour: Neighbour => neighbours(neighbour.direction) = sender()
+    case neighbour: Neighbour => this.synchronized {
+      neighbours(neighbour.direction) = sender()
+    }
 
-    case car: Car =>
+    case car: Car => this.synchronized {
       handleNewTransmittable(car)
-//      Thread.sleep(100)
+    }
 
-    case "CLEAR_UNDER_ADAPTATION" => isUnderAdaptation.set(false)
+    case adaptationApplyCommand: AdaptationApplyCommand => this.synchronized {
+      timings(adaptationApplyCommand.sourceDirection)(adaptationApplyCommand.destinationDirection) += adaptationApplyCommand.adaptationFactor
+      endAdaptation()
+    }
 
-    case route: Route => doRouting(route)
+    //    case "CLEAR_UNDER_ADAPTATION" => endAdaptation()
 
-    case "GET_ACTOR_STATUS" => sender ! this
+    case route: Route => this.synchronized {
+      doRouting(route)
+    }
+
+    case "GET_ACTOR_STATUS" => this.synchronized {
+      sender ! this
+    }
 
     case _ =>
   }
 
   def handleNewTransmittable(car: Car) = {
+    if (adaptationRequired(car)) {
 
-    var totalQueueSize = 0L
-    Direction.values.foreach((sourceDirection: Direction.Value) => {
-      Direction.values.foreach((destinationDirection: Direction.Value) => {
-        totalQueueSize += queues(sourceDirection)(destinationDirection).size
-      })
-    })
-
-    if (queues(car.entranceDirection)(car.nextTrafficLightDirection).size < totalQueueSize &&
-      queues(car.entranceDirection)(car.nextTrafficLightDirection).size > totalQueueSize / 6) {
-      isUnderAdaptation.set(true)
-      timings(car.entranceDirection)(car.nextTrafficLightDirection) += 0.2
-
-      context.system.scheduler.scheduleOnce(5.seconds, self, "CLEAR_UNDER_ADAPTATION")
+      startAdaptation()
+      Thread.sleep(300)
+      self ! new AdaptationApplyCommand(car.entranceDirection, car.nextTrafficLightDirection, 0.2)
+//      context.system.scheduler.scheduleOnce(4.seconds, self, new AdaptationApplyCommand(car.entranceDirection, car.nextTrafficLightDirection, 0.2))
+      //      context.system.scheduler.scheduleOnce(4.seconds, self, "CLEAR_UNDER_ADAPTATION")
+      //      self ! "CLEAR_UNDER_ADAPTATION"
     }
 
     super.handleNewTransmittable(car)

@@ -34,10 +34,15 @@ abstract class TrafficLightGridBase(name: String = "TRAFFIC_LIGHT_SYSTEM", rowsC
 
 
   val system = ActorSystem(name, com.typesafe.config.ConfigFactory.parseString(
-    s""" ${name.toLowerCase()}-prio-dispatcher {
+    s"""${name.toLowerCase()}-prio-dispatcher {
             type = Dispatcher
             mailbox-type = "%s"
-          }""".format(classOf[PrioritizedMailbox].getName)))
+          }
+      ${name.toLowerCase()}-prio-test-dispatcher {
+            executor = "thread-pool-executor"
+            type = Dispatcher
+            mailbox-type = "%s"
+          }""".format(classOf[PrioritizedMailbox].getName, classOf[PrioritizedMailbox].getName)))
 
   val listener = system.actorOf(Props[EventListener]())
   system.eventStream.subscribe(listener, classOf[DeadLetter])
@@ -158,6 +163,7 @@ abstract class TrafficLightGridBase(name: String = "TRAFFIC_LIGHT_SYSTEM", rowsC
     }
 
     var links = new ArrayBuffer[JsObject]
+    var adaptationTimeSum = 0L
     actorStatusList.foreach((status: ActorStatus) => {
       if (status != null) {
         val json = status.toJson
@@ -167,6 +173,7 @@ abstract class TrafficLightGridBase(name: String = "TRAFFIC_LIGHT_SYSTEM", rowsC
         json("links").foreach((link: JsObject) =>
           links += link
         )
+        adaptationTimeSum += status.averageAdaptationTime
       }
     })
 
@@ -187,13 +194,14 @@ abstract class TrafficLightGridBase(name: String = "TRAFFIC_LIGHT_SYSTEM", rowsC
     val arrivedCars = getArrivedCarsList
     JsObject(Seq(
       "nodes" -> JsArray(nodes.toSeq),
-      "links" -> JsArray(links toSeq),
+      "links" -> JsArray(links.toSeq),
       "status" -> JsString(if (DataSource.feedingRound > DataSource.feedingRounds) "FEEDING COMPLETED" else s"FEEDING ROUND: ${DataSource.feedingRound}"),
       "enqueuedCars" -> JsString(if (enqueuedCars < 1) "NO WAITING CAR" else s"WAITING CARS: $enqueuedCars"),
       "cars" -> JsObject(Seq(
         "count" -> JsNumber(arrivedCars.size),
         "avgArivalTime" -> JsNumber(if (arrivedCars.nonEmpty) arrivedCars.sum / arrivedCars.size else 0)
-      ))
+      )),
+      "averageAdaptationTime" -> JsNumber(adaptationTimeSum / (rowsCount * columnsCount))
     ))
   }
 

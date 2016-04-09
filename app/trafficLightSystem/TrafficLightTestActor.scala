@@ -48,9 +48,9 @@ class TrafficLightTestActor(carSpeed: Int = 5, routeCapacity: Int = 60) extends 
       handleNewTransmittable(token)
     }
 
-//    case predictionResult: PredictionResult => this.synchronized {
-//      handlePredictedInputCars(predictionResult)
-//    }
+    case predictionResult: PredictionResult => this.synchronized {
+      handlePredictedInputCars(predictionResult)
+    }
 
     case tokenRoute: TokenRoute => this.synchronized {
       doRouting(tokenRoute)
@@ -61,7 +61,7 @@ class TrafficLightTestActor(carSpeed: Int = 5, routeCapacity: Int = 60) extends 
     }
 
     case _ =>
-//      log(s"UNKNOWN")
+    //      log(s"UNKNOWN")
   }
 
   def getTargetActor(actor: ActorRef): ActorSelection = {
@@ -146,21 +146,26 @@ class TrafficLightTestActor(carSpeed: Int = 5, routeCapacity: Int = 60) extends 
       self ! tokenRoute
     }
     else {
-      var waitTime: Double = 0.0
+      if (initiator != null && parent != null) {
+        var waitTime: Double = 0.0
 
-      Direction.values.foreach((sourceDirection: Direction.Value) => {
-        if (sourceDirection != None)
-          Direction.values.foreach((destinationDirection: Direction.Value) => {
-            if (destinationDirection != None && sourceDirection != destinationDirection &&
-              waitTimes.contains(sourceDirection) && waitTimes(sourceDirection).contains(destinationDirection))
-              waitTime += waitTimes(sourceDirection)(destinationDirection).average()
-          })
-      })
-      getTargetActor(initiator) ! new PartialTestResult(initiator, adaptationGroupId, adaptationFactor, waitTime)
+        Direction.values.foreach((sourceDirection: Direction.Value) => {
+          if (sourceDirection != None)
+            Direction.values.foreach((destinationDirection: Direction.Value) => {
+              if (destinationDirection != None && sourceDirection != destinationDirection &&
+                waitTimes.contains(sourceDirection) && waitTimes(sourceDirection).contains(destinationDirection))
+                waitTime += waitTimes(sourceDirection)(destinationDirection).average()
+            })
+        })
+        getTargetActor(initiator) ! new PartialTestResult(initiator, adaptationGroupId, adaptationFactor, waitTime)
 
-      if (initiator != parent)
-      //                    context.system.scheduler.scheduleOnce(5.seconds, parent, new FinishMessage(adaptationGroupId, adaptationFactor))
-        parent ! new FinishMessage(adaptationGroupId, adaptationFactor)
+        if (initiator != parent)
+        //                    context.system.scheduler.scheduleOnce(5.seconds, parent, new FinishMessage(adaptationGroupId, adaptationFactor))
+          parent ! new FinishMessage(adaptationGroupId, adaptationFactor)
+      }
+      else
+        context.system.scheduler.scheduleOnce(10.milliseconds, self, tokenRoute)
+
     }
   }
 
