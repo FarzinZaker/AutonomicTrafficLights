@@ -1,7 +1,7 @@
 package trafficLightSystem
 
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.{Date, UUID}
+import java.util.Date
 
 import akka.actor.{ActorSelection, ActorLogging, ActorRef, Actor}
 import trafficLightSystem.Direction._
@@ -30,7 +30,7 @@ class TrafficLightTestActor(carSpeed: Int = 5, routeCapacity: Int = 60) extends 
 
   var parent: ActorRef = null
   var initiator: ActorRef = null
-  var adaptationGroupId: UUID = null
+  var adaptationGroupId: Long = -1
   var adaptationPathSourceDirection: Direction.Value = null
   var adaptationPathDestinationDirection: Direction.Value = null
   var adaptationFactor: Double = 1.0

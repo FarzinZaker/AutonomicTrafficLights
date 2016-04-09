@@ -13,7 +13,7 @@ class TrafficLightActor(carSpeed: Int = 5, routeCapacity: Int = 600) extends Tra
 
     case car: Car => this.synchronized {
       if (adaptationRequired(car)) {
-        Thread.sleep(300)
+//        Thread.sleep(300)
       }
       handleNewTransmittable(car)
     }

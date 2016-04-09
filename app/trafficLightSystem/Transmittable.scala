@@ -1,7 +1,5 @@
 package trafficLightSystem
 
-import java.util.UUID
-
 import Direction._
 
 import scala.collection.mutable
@@ -11,7 +9,7 @@ import scala.collection.mutable
   */
 abstract class Transmittable(val path: Path) extends TimeAware {
 
-  val id: UUID = UUID.randomUUID()
+  val id: Long = IdGenerator.get()
   var entranceDirection = Direction.opponent(path.head)
   var remainingPath = path.clone()
   var currentRow = path.sourceRow

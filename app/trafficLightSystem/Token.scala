@@ -1,6 +1,5 @@
 package trafficLightSystem
 
-import java.util.UUID
 
 import scala.collection.mutable
 
@@ -9,10 +8,10 @@ import scala.collection.mutable
   */
 
 object Token {
-  def apply(car: Car, adaptationGroup: UUID, adaptationFactor: Double): Token = {
+  def apply(car: Car, adaptationGroup: Long, adaptationFactor: Double): Token = {
     new Token(car.remainingPath.clone(), adaptationGroup, adaptationFactor)
   }
 }
 
-class Token(path: Path, val adaptationGroup: UUID, val adaptationFactor: Double) extends Transmittable(path) {
+class Token(path: Path, val adaptationGroup: Long, val adaptationFactor: Double) extends Transmittable(path) {
 }

@@ -41,7 +41,7 @@ class TrafficLightAdaptiveActor(carSpeed: Int = 5, routeCapacity: Int = 600) ext
     if (adaptationRequired(car)) {
 
       startAdaptation()
-      Thread.sleep(300)
+//      Thread.sleep(300)
       self ! new AdaptationApplyCommand(car.entranceDirection, car.nextTrafficLightDirection, 0.2)
 //      context.system.scheduler.scheduleOnce(4.seconds, self, new AdaptationApplyCommand(car.entranceDirection, car.nextTrafficLightDirection, 0.2))
       //      context.system.scheduler.scheduleOnce(4.seconds, self, "CLEAR_UNDER_ADAPTATION")

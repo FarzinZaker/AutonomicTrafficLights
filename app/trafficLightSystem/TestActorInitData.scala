@@ -1,6 +1,5 @@
 package trafficLightSystem
 
-import java.util.UUID
 
 import akka.actor.ActorRef
 
@@ -13,7 +12,7 @@ class TestActorInitData(val parent: ActorRef,
                         val initiator: ActorRef,
                         val neighbours: mutable.HashMap[Direction.Value, ActorRef],
                         val currentTimings: mutable.HashMap[Direction.Value, mutable.HashMap[Direction.Value, Double]],
-                        val adaptationGroup: UUID,
+                        val adaptationGroup: Long,
                         val factor: Double,
                         val applyAdaptation: Boolean = false,
                         val adaptationPathSourceDirection: Direction.Value = Direction.None,

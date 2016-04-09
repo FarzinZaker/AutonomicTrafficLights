@@ -1,6 +1,6 @@
 package trafficLightSystem
 
-import java.util.{Date, UUID}
+import java.util.Date
 import java.util.concurrent.atomic.{AtomicLong, AtomicBoolean, AtomicInteger}
 
 import akka.actor.{ActorSelection, ActorRef, Actor}
@@ -28,7 +28,7 @@ abstract class TrafficLightActorBase(var transmittableSpeed: Int = 5, var routeC
   protected val waitTimes = mutable.HashMap[Direction.Value, mutable.HashMap[Direction.Value, Average]]()
   protected val neighbours = mutable.HashMap[Direction.Value, ActorRef]()
   protected val timings = mutable.HashMap[Direction.Value, mutable.HashMap[Direction.Value, Double]]()
-  protected val testActors = mutable.HashMap[UUID, mutable.HashMap[Double, ActorRef]]()
+  protected val testActors = mutable.HashMap[Long, mutable.HashMap[Double, ActorRef]]()
   protected var isUnderAdaptation = new AtomicBoolean(false)
   protected val adaptationTimes = new Average()
   protected var rowNumber: Int = 0

@@ -1,6 +1,5 @@
 package trafficLightSystem
 
-import java.util.UUID
 import java.util.concurrent.atomic.{AtomicReference, AtomicLong, AtomicIntegerArray}
 import scala.collection._
 import akka.actor.{StopChild, PoisonPill, ActorRef, Props}
@@ -20,8 +19,8 @@ class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: I
   val testResults = mutable.HashMap[Direction.Value, mutable.HashMap[Direction.Value, mutable.HashMap[Double, Double]]]()
 
   var phaseSwitchMessageCounter = 0
-  var currentAdaptationGroupId: UUID = null
-  var routedCars = mutable.HashMap[UUID, Int]()
+  var currentAdaptationGroupId: Long = -1
+  var routedCars = mutable.HashMap[Long, Int]()
 
   context.system.scheduler.schedule(0.seconds, 1000.milliseconds, self, "ELAPSE_TIMER")
 
@@ -111,7 +110,7 @@ class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: I
     if (adaptationRequired(car)) {
       startAdaptation()
       phaseSwitchMessageCounter = 0
-      currentAdaptationGroupId = UUID.randomUUID()
+      currentAdaptationGroupId = IdGenerator.get()
       broadcast(new AdaptationMessage(self, currentAdaptationGroupId, adaptationArray, car.entranceDirection, car.nextTrafficLightDirection))
     }
 
@@ -167,7 +166,7 @@ class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: I
     }
   }
 
-  def finishTestActor(adaptationGroupId: UUID, adaptationFactor: Double) = {
+  def finishTestActor(adaptationGroupId: Long, adaptationFactor: Double) = {
     context.stop(testActors(adaptationGroupId)(adaptationFactor))
     //    testActors(adaptationGroupId)(adaptationFactor) ! PoisonPill.getInstance
     testActors(adaptationGroupId) -= adaptationFactor
