@@ -22,12 +22,11 @@ object TrafficLightTestActor {
 /**
   * Created by root on 3/11/16.
   */
-class TrafficLightTestActor(carSpeed: Int = 5, routeCapacity: Int = 60) extends TrafficLightActorBase(carSpeed, routeCapacity) {
+class TrafficLightTestActor extends TrafficLightActorBase {
 
   import context._
 
   //  TrafficLightTestActor.currentInstances()
-
   var parent: ActorRef = null
   var initiator: ActorRef = null
   var adaptationGroupId: Long = -1
@@ -116,11 +115,11 @@ class TrafficLightTestActor(carSpeed: Int = 5, routeCapacity: Int = 60) extends 
         })
       })
 
-      val transmittableCount = math.ceil(timings(tokenRoute.sourceDirection)(tokenRoute.destinationDirection) * routeCapacity / (totalTiming * transmittableSpeed)).toInt
+      val transmittableCount = math.ceil(timings(tokenRoute.sourceDirection)(tokenRoute.destinationDirection) * routeCapacity / (totalTiming * carSpeed)).toInt
       for (i <- 0 until transmittableCount)
         if (queues(tokenRoute.sourceDirection)(tokenRoute.destinationDirection).nonEmpty) {
           val transmittable = queues(tokenRoute.sourceDirection)(tokenRoute.destinationDirection).dequeue()
-          transmittable.elapseTime(transmittableSpeed)
+          transmittable.elapseTime(carSpeed)
           if (neighbours.contains(tokenRoute.destinationDirection)) {
             waitTimes(tokenRoute.sourceDirection)(tokenRoute.destinationDirection) += transmittable.waitTime
             transmittable.waitStack.push(transmittable.waitTime)
@@ -133,7 +132,7 @@ class TrafficLightTestActor(carSpeed: Int = 5, routeCapacity: Int = 60) extends 
       Direction.values.foreach((sourceDirection: Direction.Value) => {
         Direction.values.foreach((destinationDirection: Direction.Value) => {
           for (transmittable <- queues(sourceDirection)(destinationDirection)) {
-            transmittable.elapseTime(transmittableCount * transmittableSpeed)
+            transmittable.elapseTime(transmittableCount * carSpeed)
           }
         })
       })

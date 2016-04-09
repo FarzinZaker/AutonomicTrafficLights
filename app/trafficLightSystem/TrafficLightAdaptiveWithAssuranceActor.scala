@@ -10,11 +10,9 @@ import scala.concurrent.duration._
   * Created by root on 2/27/16.
   */
 
-class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: Int = 600) extends TrafficLightActorBase(carSpeed, routeCapacity) with InputCarPrediction {
+class TrafficLightAdaptiveWithAssuranceActor(adaptationFactorArray: Array[Double]) extends TrafficLightActorBase with InputCarPrediction {
 
   import context._
-
-  val adaptationArray = Array(0.2, 0.4, 0.8)
 
   val testResults = mutable.HashMap[Direction.Value, mutable.HashMap[Direction.Value, mutable.HashMap[Double, Double]]]()
 
@@ -64,7 +62,7 @@ class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: I
           testResults(testResult.adaptationPathSourceDirection) += testResult.adaptationPathDestinationDirection -> mutable.HashMap[Double, Double]()
         if (!testResults(testResult.adaptationPathSourceDirection)(testResult.adaptationPathDestinationDirection).contains(testResult.adaptationFactor))
           testResults(testResult.adaptationPathSourceDirection)(testResult.adaptationPathDestinationDirection) += testResult.adaptationFactor -> testResult.value
-        if (testResults(testResult.adaptationPathSourceDirection)(testResult.adaptationPathDestinationDirection).keySet.size == adaptationArray.size) {
+        if (testResults(testResult.adaptationPathSourceDirection)(testResult.adaptationPathDestinationDirection).keySet.size == adaptationFactorArray.size) {
           var selectedAdaptationFactor = 0.0
           var minWaitTime = 0.0
           for (factor <- testResults(testResult.adaptationPathSourceDirection)(testResult.adaptationPathDestinationDirection).keySet) {
@@ -113,7 +111,7 @@ class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: I
 //      timings(car.entranceDirection)(car.nextTrafficLightDirection) += 0.4
       phaseSwitchMessageCounter = 0
       currentAdaptationGroupId = IdGenerator.get()
-      broadcast(new AdaptationMessage(self, currentAdaptationGroupId, adaptationArray, car.entranceDirection, car.nextTrafficLightDirection))
+      broadcast(new AdaptationMessage(self, currentAdaptationGroupId, adaptationFactorArray, car.entranceDirection, car.nextTrafficLightDirection))
     }
 
     super.handleNewTransmittable(car)

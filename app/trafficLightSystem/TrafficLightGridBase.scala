@@ -14,7 +14,7 @@ import scala.io.Source
 /**
   * Created by root on 4/3/16.
   */
-abstract class TrafficLightGridBase(name: String = "TRAFFIC_LIGHT_SYSTEM", rowsCount: Int = 8, columnsCount: Int = 8) {
+abstract class TrafficLightGridBase(name: String = "TRAFFIC_LIGHT_SYSTEM", rowsCount: Int, columnsCount: Int) {
 
   val carList = new ArrayBuffer[Car]()
 

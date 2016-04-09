@@ -20,9 +20,13 @@ object TrafficLightActorBase {
   }
 }
 
-abstract class TrafficLightActorBase(var transmittableSpeed: Int = 5, var routeCapacity: Int = 600) extends Actor {
+abstract class TrafficLightActorBase() extends Actor {
 
   import context._
+
+  //configuration
+  val carSpeed: Int = 5
+  val routeCapacity: Int = 600
 
   protected val queues = mutable.HashMap[Direction.Value, mutable.HashMap[Direction.Value, mutable.Queue[Transmittable]]]()
   protected val waitTimes = mutable.HashMap[Direction.Value, mutable.HashMap[Direction.Value, Average]]()
@@ -73,14 +77,14 @@ abstract class TrafficLightActorBase(var transmittableSpeed: Int = 5, var routeC
           totalTiming += timings(sourceDirection)(destinationDirection)
         })
       })
-      val transmittableCount = math.ceil(timings(route.sourceDirection)(route.destinationDirection) * routeCapacity / (totalTiming * transmittableSpeed)).toInt
+      val transmittableCount = math.ceil(timings(route.sourceDirection)(route.destinationDirection) * routeCapacity / (totalTiming * carSpeed)).toInt
       for (i <- 0 until transmittableCount)
         if (queues(route.sourceDirection)(route.destinationDirection).nonEmpty) {
           val transmittable = queues(route.sourceDirection)(route.destinationDirection).dequeue()
           if (neighbours.contains(route.destinationDirection)) {
             waitTimes(route.sourceDirection)(route.destinationDirection) += transmittable.waitTime
             transmittable.waitStack.push(transmittable.waitTime)
-            transmittable.elapseTime(transmittableSpeed)
+            transmittable.elapseTime(carSpeed)
             neighbours(route.destinationDirection) ! transmittable.move()
             TrafficLightActorBase.increaseRouteCount()
           }
@@ -91,7 +95,7 @@ abstract class TrafficLightActorBase(var transmittableSpeed: Int = 5, var routeC
       Direction.values.foreach((sourceDirection: Direction.Value) => {
         Direction.values.foreach((destinationDirection: Direction.Value) => {
           for (transmittable <- queues(sourceDirection)(destinationDirection)) {
-            transmittable.elapseTime(transmittableCount * transmittableSpeed)
+            transmittable.elapseTime(transmittableCount * carSpeed)
           }
         })
       })
@@ -101,7 +105,7 @@ abstract class TrafficLightActorBase(var transmittableSpeed: Int = 5, var routeC
         route.sourceDirection = Direction.next(route.sourceDirection)
         route.destinationDirection = Direction.opponent(route.destinationDirection)
       }
-      context.system.scheduler.scheduleOnce((transmittableCount * transmittableSpeed * 10).milliseconds, self, route)
+      context.system.scheduler.scheduleOnce((transmittableCount * carSpeed * 10).milliseconds, self, route)
     }
     catch {
       case ex: Exception =>

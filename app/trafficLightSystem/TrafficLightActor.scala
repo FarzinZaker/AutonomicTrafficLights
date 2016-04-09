@@ -3,7 +3,7 @@ package trafficLightSystem
 /**
   * Created by root on 2/27/16.
   */
-class TrafficLightActor(carSpeed: Int = 5, routeCapacity: Int = 600) extends TrafficLightActorBase(carSpeed, routeCapacity) {
+class TrafficLightActor extends TrafficLightActorBase() {
 
   def receive = {
 
