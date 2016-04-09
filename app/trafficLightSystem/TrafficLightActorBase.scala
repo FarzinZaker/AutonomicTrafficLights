@@ -50,6 +50,10 @@ abstract class TrafficLightActorBase(var transmittableSpeed: Int = 5, var routeC
     })
   })
 
+  def elapsedAdaptationTime: Long = {
+    new Date().getTime - adaptationStartTime.get()
+  }
+
   def handleNewTransmittable(transmittable: Transmittable) = {
     if (!transmittable.arrived()) {
       transmittable.setEnqueueTime()
@@ -60,8 +64,8 @@ abstract class TrafficLightActorBase(var transmittableSpeed: Int = 5, var routeC
   }
 
   def doRouting(route: Route) = {
-//    while (isUnderAdaptation.get())
-//      Thread.sleep(100)
+    //    while (isUnderAdaptation.get())
+    //      Thread.sleep(100)
     try {
       var totalTiming = 0.0
       Direction.values.foreach((sourceDirection: Direction.Value) => {

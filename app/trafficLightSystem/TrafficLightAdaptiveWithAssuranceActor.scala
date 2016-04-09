@@ -77,7 +77,8 @@ class TrafficLightAdaptiveWithAssuranceActor(carSpeed: Int = 5, routeCapacity: I
           testResults(testResult.adaptationPathSourceDirection) -= testResult.adaptationPathDestinationDirection
           finishTestActor(testResult.adaptationGroupId, testResult.adaptationFactor)
 
-          self ! new AdaptationApplyCommand(testResult.adaptationPathSourceDirection, testResult.adaptationPathDestinationDirection, selectedAdaptationFactor)
+          context.system.scheduler.scheduleOnce((10000 - elapsedAdaptationTime).milliseconds, self, new AdaptationApplyCommand(testResult.adaptationPathSourceDirection, testResult.adaptationPathDestinationDirection, selectedAdaptationFactor))
+//          self ! new AdaptationApplyCommand(testResult.adaptationPathSourceDirection, testResult.adaptationPathDestinationDirection, selectedAdaptationFactor)
         }
       }
 
